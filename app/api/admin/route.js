@@ -12,13 +12,14 @@ export async function GET(req) {
     const admin = getAdminClient();
 
     if (action === 'stats') {
-      const [produits, services, users, commandes, signalements, boosts] = await Promise.all([
+      const [produits, services, usersRes, commandes, signalements, boosts, abonnements] = await Promise.all([
         admin.from('produits').select('id,statut'),
         admin.from('services').select('id,statut'),
         admin.rpc('get_users_count'),
-        admin.from('commandes').select('id,montant_total,statut'),
+        admin.from('commandes').select('id,montant_total,statut,created_at'),
         admin.from('signalements').select('id,statut'),
         admin.from('boosts').select('id,total_a_payer,statut'),
+        admin.from('abonnements').select('id,plan,statut'),
       ]);
 
       const { data: caAll } = await admin.from('commandes').select('montant_total');
@@ -28,14 +29,79 @@ export async function GET(req) {
       const ca = caAll?.reduce((s, c) => s + Number(c.montant_total||0), 0) || 0;
       const caM = caMois?.reduce((s, c) => s + Number(c.montant_total||0), 0) || 0;
 
+      const cmdMois = commandes.data?.filter(c =>
+        new Date(c.created_at) > new Date(Date.now() - 30*86400000)
+      ).length||0;
+
+      const abosActifs = abonnements.data?.filter(a => a.statut === 'actif').length||0;
+      const boostsActifs = boosts.data?.filter(b => b.statut === 'actif').length||0;
+
+      const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 10000 });
+      const allUsers = usersList?.users || [];
+      const newUsers30d = allUsers.filter(u =>
+        new Date(u.created_at) > new Date(Date.now() - 30*86400000)
+      ).length;
+
       return NextResponse.json({
-        users: users.data || 0,
+        users: usersRes.data || 0,
+        newUsers30d,
+        abonnementsActifs: abosActifs,
+        revenuAbonnementsMois: 0,
         produits: { total: produits.data?.length||0, publies: produits.data?.filter(p => p.statut === 'published').length||0 },
         services: { total: services.data?.length||0, actifs: services.data?.filter(s => s.statut === 'actif').length||0 },
-        commandes: { total: commandes.data?.length||0, ca, caMois: caM },
+        commandes: { total: commandes.data?.length||0, mois: cmdMois, ca, caMois: caM },
         signalements: signalements.data?.filter(s => s.statut === 'en_attente').length||0,
-        boosts: { total: boosts.data?.length||0 },
+        boosts: { total: boosts.data?.length||0, actifs: boostsActifs },
       });
+    }
+
+    if (action === 'analytics') {
+      const jours = parseInt(searchParams.get('jours')||'30');
+      const since = new Date(Date.now() - jours*86400000).toISOString();
+
+      const { data: { users: allUsers } } = await admin.auth.admin.listUsers({ perPage: 10000 });
+      const joursData = {};
+      for (let i = jours-1; i >= 0; i--) {
+        const d = new Date(Date.now() - i*86400000).toISOString().split('T')[0];
+        joursData[d] = 0;
+      }
+      (allUsers||[]).forEach(u => {
+        const d = u.created_at?.split('T')[0];
+        if (joursData[d] !== undefined) joursData[d]++;
+      });
+      const userGrowth = Object.entries(joursData).sort().map(([date, count]) => ({ value: count, label: date.slice(5) }));
+
+      const { data: abos } = await admin.from('abonnements').select('plan,statut');
+      const plans = { gratuit:0, basique:0, pro:0, illimité:0 };
+      (abos||[]).filter(a => a.statut === 'actif').forEach(a => { plans[a.plan] = (plans[a.plan]||0)+1; });
+      const subscriptionBreakdown = Object.entries(plans).filter(([_,v]) => v>0).map(([label, value]) => ({ label: label.charAt(0).toUpperCase()+label.slice(1), value }));
+
+      const { data: commandes } = await admin.from('commandes').select('montant_total,created_at')
+        .gte('created_at', since).order('created_at');
+      const revJours = {};
+      for (let i = jours-1; i >= 0; i--) {
+        const d = new Date(Date.now() - i*86400000).toISOString().split('T')[0];
+        revJours[d] = 0;
+      }
+      (commandes||[]).forEach(c => {
+        const d = c.created_at?.split('T')[0];
+        if (revJours[d] !== undefined) revJours[d] += Number(c.montant_total||0);
+      });
+      const revenueTimeline = Object.entries(revJours).sort().map(([date, val]) => ({ value: Math.round(val), label: date.slice(5) }));
+
+      const convJours = {};
+      for (let i = jours-1; i >= 0; i--) {
+        const d = new Date(Date.now() - i*86400000).toISOString().split('T')[0];
+        convJours[d] = 0;
+      }
+      const { data: abosHistory } = await admin.from('abonnements').select('created_at,statut');
+      (abosHistory||[]).filter(a => a.statut === 'actif').forEach(a => {
+        const d = a.created_at?.split('T')[0];
+        if (convJours[d] !== undefined) convJours[d]++;
+      });
+      const conversionTimeline = Object.entries(convJours).sort().map(([date, count]) => ({ value: count, label: date.slice(5) }));
+
+      return NextResponse.json({ userGrowth, subscriptionBreakdown, revenueTimeline, conversionTimeline });
     }
 
     if (action === 'users') {
@@ -106,6 +172,45 @@ export async function GET(req) {
       return NextResponse.json({
         services: (data||[]).map(s => ({ ...s, user: userMap[s.user_id]||null })),
         total: count||0, page, totalPages: Math.ceil((count||0)/limit),
+      });
+    }
+
+    if (action === 'commandes') {
+      const page = parseInt(searchParams.get('page')||'1');
+      const limit = 20;
+      const search = searchParams.get('search')||'';
+      let q = admin.from('commandes').select('*', { count: 'exact' }).order('created_at', { ascending: false });
+      if (search) q = q.or(`id.ilike.%${search}%`);
+      const { data, count } = await q.range((page-1)*limit, page*limit-1);
+      const ca = (data||[]).reduce((s, c) => s + Number(c.montant_total||0), 0);
+      return NextResponse.json({
+        commandes: data||[], total: count||0, ca,
+        enCours: (data||[]).filter(c => c.statut==='en_cours'||c.statut==='en_attente').length,
+        livrees: (data||[]).filter(c => c.statut==='livree'||c.statut==='payee').length,
+        page, totalPages: Math.ceil((count||0)/limit),
+      });
+    }
+
+    if (action === 'abonnements') {
+      const { data: abos } = await admin.from('abonnements').select('*').order('created_at', { ascending: false });
+      const actifs = (abos||[]).filter(a => a.statut === 'actif');
+      const plans = { gratuit:0, basique:0, pro:0, illimité:0 };
+      actifs.forEach(a => { plans[a.plan] = (plans[a.plan]||0)+1; });
+      const breakdown = Object.entries(plans).filter(([_,v]) => v>0).map(([label, value]) => ({ label: label.charAt(0).toUpperCase()+label.slice(1), value }));
+      const recent = (abos||[]).slice(0, 10);
+      const uids = [...new Set(recent.map(a => a.user_id))];
+      const userMap = {};
+      if (uids.length) {
+        const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 10000 });
+        (users||[]).filter(u => uids.includes(u.id)).forEach(u => {
+          userMap[u.id] = { email: u.email, nom: u.user_metadata?.display_name || u.user_metadata?.name || u.email?.split('@')[0] };
+        });
+      }
+      const totalUsers = (await admin.auth.admin.listUsers({ perPage: 1 })).data?.total || 0;
+      const tauxConversion = totalUsers > 0 ? ((actifs.length / totalUsers) * 100).toFixed(1) : '0';
+      return NextResponse.json({
+        stats: { actifs: actifs.length, tauxConversion, resiliations: (abos||[]).filter(a => a.statut!=='actif').length, revenuMensuel: 0 },
+        breakdown, recent: recent.map(a => ({ ...a, user: userMap[a.user_id]||null })),
       });
     }
 
@@ -196,6 +301,12 @@ export async function POST(req) {
     if (action === 'update_service_status') {
       await admin.from('services').update({ statut: body.statut }).eq('id', body.serviceId);
       await log(admin, adminId, 'update_service_status', 'service', body.serviceId, { statut: body.statut });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'delete_commande') {
+      await admin.from('commandes').delete().eq('id', body.commandeId);
+      await log(admin, adminId, 'delete_commande', 'commande', body.commandeId);
       return NextResponse.json({ success: true });
     }
 
