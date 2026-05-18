@@ -46,7 +46,7 @@ export default function Signalements() {
 
   return (
     <div>
-      <div className="admh" style={{marginBottom:20}}>
+      <div className="adpagehead" style={{marginBottom:20}}>
         <h2>Signalements</h2>
         <p>Contenus signalés par les utilisateurs</p>
       </div>

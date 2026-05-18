@@ -32,7 +32,7 @@ export default function Trafic() {
 
   return (
     <div>
-      <div className="admh" style={{marginBottom:20}}>
+      <div className="adpagehead" style={{marginBottom:20}}>
         <h2>Trafic</h2>
         <p>Analyse des visites et pages populaires</p>
       </div>

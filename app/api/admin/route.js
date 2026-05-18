@@ -180,11 +180,20 @@ export async function GET(req) {
       const limit = 20;
       const search = searchParams.get('search')||'';
       let q = admin.from('commandes').select('*', { count: 'exact' }).order('created_at', { ascending: false });
-      if (search) q = q.or(`id.ilike.%${search}%`);
+      if (search) q = q.or(`numero.ilike.%${search}%`);
       const { data, count } = await q.range((page-1)*limit, page*limit-1);
       const ca = (data||[]).reduce((s, c) => s + Number(c.montant_total||0), 0);
+      const uids = [...new Set((data||[]).map(c => c.user_id).filter(Boolean))];
+      const userMap = {};
+      if (uids.length) {
+        const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 10000 });
+        (users||[]).filter(u => uids.includes(u.id)).forEach(u => {
+          userMap[u.id] = { email: u.email, nom: u.user_metadata?.display_name || u.user_metadata?.name || u.email?.split('@')[0] };
+        });
+      }
       return NextResponse.json({
-        commandes: data||[], total: count||0, ca,
+        commandes: (data||[]).map(c => ({ ...c, user: userMap[c.user_id]||null })),
+        total: count||0, ca,
         enCours: (data||[]).filter(c => c.statut==='en_cours'||c.statut==='en_attente').length,
         livrees: (data||[]).filter(c => c.statut==='livree'||c.statut==='payee').length,
         page, totalPages: Math.ceil((count||0)/limit),
@@ -212,6 +221,30 @@ export async function GET(req) {
         stats: { actifs: actifs.length, tauxConversion, resiliations: (abos||[]).filter(a => a.statut!=='actif').length, revenuMensuel: 0 },
         breakdown, recent: recent.map(a => ({ ...a, user: userMap[a.user_id]||null })),
       });
+    }
+
+    if (action === 'agent_metrics') {
+      const jours = parseInt(searchParams.get('jours')||'7');
+      const since = new Date(Date.now() - jours*86400000).toISOString();
+
+      const { data: agents } = await admin.from('agents').select('id,name,type,status,total_runs,success_count,error_count,last_run_at');
+      const { data: runs } = await admin.from('agent_runs').select('agent_id,status,duration_ms,created_at')
+        .gte('created_at', since).order('created_at', { ascending: false });
+
+      const runsPerAgent = {};
+      (runs||[]).forEach(r => {
+        if (!runsPerAgent[r.agent_id]) runsPerAgent[r.agent_id] = { total:0, success:0, failed:0, avgDuration:0, durations:[] };
+        runsPerAgent[r.agent_id].total++;
+        if (r.status === 'success') runsPerAgent[r.agent_id].success++;
+        else runsPerAgent[r.agent_id].failed++;
+        if (r.duration_ms) runsPerAgent[r.agent_id].durations.push(r.duration_ms);
+      });
+      Object.values(runsPerAgent).forEach(a => {
+        a.avgDuration = a.durations.length ? Math.round(a.durations.reduce((s,d)=>s+d,0)/a.durations.length) : 0;
+        delete a.durations;
+      });
+
+      return NextResponse.json({ agents: agents||[], runsPerAgent, totalRuns: (runs||[]).length });
     }
 
     if (action === 'visiteurs') {

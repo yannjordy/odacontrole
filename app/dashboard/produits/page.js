@@ -49,7 +49,7 @@ export default function Produits() {
 
   return (
     <div>
-      <div className="admh" style={{marginBottom:20}}>
+      <div className="adpagehead" style={{marginBottom:20}}>
         <h2>Produits</h2>
         <p>Tous les produits de la marketplace</p>
       </div>
@@ -62,24 +62,29 @@ export default function Produits() {
       {loading ? <div className="adld"><div className="adsp" /></div> : (
         <div className="adtw">
           <table className="adtabl">
-            <thead><tr><th>Produit</th><th>Prix</th><th>Vendeur</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
-            <tbody>
-              {(data.produits||[]).map(p => (
-                <tr key={p.id}>
-                  <td style={{fontWeight:600,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.nom}</td>
-                  <td>{(p.prix||0).toLocaleString('fr-FR')} F</td>
-                  <td style={{fontSize:'.78rem',color:'#666'}}>{p.user?.email||p.user_id?.slice(0,8)}</td>
-                  <td><span className={`adpill ${p.statut==='published'?'actif':p.statut==='draft'?'inactif':p.statut==='suspended'?'banned':'inactif'}`}>{p.statut}</span></td>
-                  <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{new Date(p.created_at).toLocaleDateString('fr-FR')}</td>
-                  <td>
-                    <div style={{display:'flex',gap:4}}>
-                      <button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'produit_statut',item:p})}>Statut</button>
-                      <button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete_produit',item:p})}>Suppr.</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            <thead><tr><th>Produit</th><th>Vendeur</th><th>Prix</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
+              <tbody>
+                {(data.produits||[]).map(p => (
+                  <tr key={p.id}>
+                    <td>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        {p.main_image&&<img src={p.main_image} alt="" style={{width:36,height:36,borderRadius:8,objectFit:'cover',background:'#f5f5f5'}}/>}
+                        <span style={{fontWeight:600,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.nom}</span>
+                      </div>
+                    </td>
+                    <td style={{fontSize:'.78rem',color:'#666'}}>{p.user?.email||p.user_id?.slice(0,8)}</td>
+                    <td>{(p.prix||0).toLocaleString('fr-FR')} F</td>
+                    <td><span className={`adpill ${p.statut==='published'?'actif':p.statut==='draft'?'inactif':p.statut==='suspended'?'banned':'inactif'}`}>{p.statut}</span></td>
+                    <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{new Date(p.created_at).toLocaleDateString('fr-FR')}</td>
+                    <td>
+                      <div style={{display:'flex',gap:4}}>
+                        <button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'produit_statut',item:p})}>Statut</button>
+                        <button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete_produit',item:p})}>Suppr.</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
           </table>
           {(!data.produits||data.produits.length===0)&&<div className="adem"><div className="ademi">📦</div><h4 className="ademt">Aucun produit</h4><p className="ademd">Aucun produit trouvé</p></div>}
           <div className="adpag">

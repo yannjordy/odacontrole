@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  turbopack: { root: '/home/jordy/Documents/odacontrole' },
 };
 
 export default nextConfig;

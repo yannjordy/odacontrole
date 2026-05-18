@@ -58,7 +58,7 @@ export default function Utilisateurs() {
 
   return (
     <div>
-      <div className="admh" style={{marginBottom:20}}>
+      <div className="adpagehead" style={{marginBottom:20}}>
         <h2>Utilisateurs</h2>
         <p>Gestion des comptes utilisateurs</p>
       </div>
@@ -91,6 +91,7 @@ export default function Utilisateurs() {
                       {role==='super_admin'&&<button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'admin_role',user:u})}>Rôle</button>}
                       {role==='super_admin'&&<button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'abonnement',user:u})}>Abonnement</button>}
                       {role==='super_admin'&&<button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete',user:u})}>Suppr.</button>}
+                      <button className="adbtn adbtn-primary adbtn-sm" onClick={()=>window.open(`https://odamarket.vercel.app/boutique/${u.id}`,'_blank')}>Boutique</button>
                     </div>
                   </td>
                 </tr>

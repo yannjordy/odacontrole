@@ -33,6 +33,22 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# secrets
+service_key.txt
+api.txt
+agent.txt
+
+# temp / random
+ERRORSUPABASE.txt
+erreur.txt
+plan.txt
+conctat.*
+Sans nom 1.docx
+agent.html
+
+# sub-projects
+/oda-super-agent/
+
 # vercel
 .vercel
 

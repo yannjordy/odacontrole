@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -9,26 +9,42 @@ const supabase = createClient(
 );
 
 function Donut({ data, size = 140 }) {
+  const [hovered, setHovered] = useState(-1);
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
   const r = 52, cx = 70, cy = 70;
   let offset = 0;
   const colors = ['#1a1a2e','#007AFF','#FF9500','#34C759'];
   return (
-    <svg width={size} height={size} viewBox="0 0 140 140">
-      {data.map((d, i) => {
-        const pct = d.value / total;
-        const circ = 2 * Math.PI * r;
-        const len = pct * circ;
-        const rotate = (offset / total) * 360;
-        offset += d.value;
-        return (
-          <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={colors[i%colors.length]} strokeWidth="16"
-            strokeDasharray={`${len} ${circ - len}`} transform={`rotate(${rotate} ${cx} ${cy})`} strokeLinecap="round"/>
-        );
-      })}
-      <text x={cx} y={cy-4} textAnchor="middle" fill="#1a1a1a" fontSize="16" fontWeight="800">{total}</text>
-      <text x={cx} y={cy+10} textAnchor="middle" fill="#8e8e93" fontSize="8">actifs</text>
-    </svg>
+    <div style={{position:'relative',display:'inline-block'}}>
+      <svg width={size} height={size} viewBox="0 0 140 140">
+        {data.map((d, i) => {
+          const pct = d.value / total;
+          const circ = 2 * Math.PI * r;
+          const len = pct * circ;
+          const rotate = (offset / total) * 360;
+          offset += d.value;
+          return (
+            <g key={i}>
+              <circle cx={cx} cy={cy} r={r} fill="none" stroke={colors[i%colors.length]} strokeWidth="16"
+                strokeDasharray={`${len} ${circ-len}`} transform={`rotate(${rotate} ${cx} ${cy})`} strokeLinecap="round"
+                onMouseEnter={()=>setHovered(i)} onMouseLeave={()=>setHovered(-1)}
+                style={{cursor:'pointer',transition:'opacity .2s',opacity:hovered===-1||hovered===i?1:.4}}/>
+              <circle cx={cx} cy={cy} r={r+8} fill="none" stroke="transparent" strokeWidth="20"
+                strokeDasharray={`${len} ${circ-len}`} transform={`rotate(${rotate} ${cx} ${cy})`}
+                onMouseEnter={()=>setHovered(i)} onMouseLeave={()=>setHovered(-1)}
+                style={{cursor:'pointer'}}/>
+            </g>
+          );
+        })}
+        <text x={cx} y={cy-4} textAnchor="middle" fill="#1a1a1a" fontSize="16" fontWeight="800">{total}</text>
+        <text x={cx} y={cy+10} textAnchor="middle" fill="#8e8e93" fontSize="8">actifs</text>
+      </svg>
+      {hovered!==-1 && data[hovered] && (
+        <div style={{position:'absolute',left:'50%',top:'-8px',transform:'translateX(-50%) translateY(-100%)',background:'#1a1a1a',color:'#fff',padding:'4px 10px',borderRadius:8,fontSize:'.75rem',fontWeight:600,whiteSpace:'nowrap',pointerEvents:'none',zIndex:100,boxShadow:'0 2px 8px rgba(0,0,0,.2)'}}>
+          {data[hovered].label}: <strong>{data[hovered].value}</strong>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -57,7 +73,7 @@ export default function Abonnements() {
 
   return (
     <div>
-      <div className="admh" style={{marginBottom:20}}>
+      <div className="adpagehead" style={{marginBottom:20}}>
         <h2>Abonnements</h2>
         <p>Gestion des abonnements et revenus récurrents</p>
       </div>
