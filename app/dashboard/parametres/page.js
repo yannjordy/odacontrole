@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -123,6 +124,7 @@ DROP TRIGGER IF EXISTS update_shops_updated_at ON shops; CREATE TRIGGER update_s
 };
 
 export default function SettingsPage() {
+  const { isAdmin } = useRole();
   const [tab, setTab] = useState('general');
   const [config, setConfig] = useState({});
   const [saving, setSaving] = useState(false);
@@ -133,12 +135,26 @@ export default function SettingsPage() {
   const [expandedAgents, setExpandedAgents] = useState({});
   const [initModal, setInitModal] = useState(null);
   const [initLoading, setInitLoading] = useState(false);
+  const [admins, setAdmins] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [allUsersLoading, setAllUsersLoading] = useState(false);
+  const [allUsersPage, setAllUsersPage] = useState(1);
+  const [allUsersTotal, setAllUsersTotal] = useState(0);
+  const [allUsersSearch, setAllUsersSearch] = useState('');
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [modal, setModal] = useState(null);
+  const [createForm, setCreateForm] = useState({ email: '', password: '', nom: '', role: 'viewer' });
 
   useEffect(() => {
     const saved = localStorage.getItem('odacontrol_settings');
     if (saved) { try { setConfig(JSON.parse(saved)); } catch {} }
     fetchStats();
+    fetchAdmins();
   }, []);
+
+  useEffect(() => {
+    if (tab === 'users') fetchAllUsers();
+  }, [tab, allUsersPage]);
 
   async function fetchStats() {
     try {
@@ -179,13 +195,105 @@ export default function SettingsPage() {
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300) }, 3000);
   }
 
+  async function api(method, body = {}, params = {}) {
+    const qs = new URLSearchParams({ ...params, _t: Date.now() }).toString();
+    const s = await supabase.auth.getSession();
+    const res = await fetch(`/api/admin?${qs}`, {
+      method, headers: { 'Content-Type': 'application/json', 'x-admin-id': s?.data?.session?.user?.id },
+      body: method === 'POST' ? JSON.stringify(body) : undefined,
+    });
+    return res.json();
+  }
+
+  async function fetchAdmins() {
+    setLoadingAdmins(true);
+    try {
+      const res = await api('GET', {}, { action: 'admin_list' });
+      setAdmins(res.admins || []);
+    } catch {}
+    setLoadingAdmins(false);
+  }
+
+  async function fetchAllUsers() {
+    setAllUsersLoading(true);
+    try {
+      const res = await api('GET', {}, { action: 'users', page: String(allUsersPage) });
+      setAllUsers(res.users || []);
+      setAllUsersTotal(res.total || 0);
+    } catch {}
+    setAllUsersLoading(false);
+  }
+
+  async function handleCreateUser(e) {
+    e.preventDefault();
+    if (!createForm.email || !createForm.password) { toast('Email et mot de passe requis', 'error'); return; }
+    if (createForm.password.length < 6) { toast('Mot de passe : minimum 6 caractères', 'error'); return; }
+    const res = await api('POST', {
+      action: 'create_user', email: createForm.email, password: createForm.password,
+      nom: createForm.nom, role: createForm.role,
+    });
+    if (res.success) {
+      toast('✅ Utilisateur ' + createForm.email + ' créé');
+      setCreateForm({ email: '', password: '', nom: '', role: 'viewer' });
+      fetchAdmins();
+    } else {
+      toast('❌ ' + (res.error || 'Erreur'), 'error');
+    }
+  }
+
+  async function handleUpdateRole(userId, newRole) {
+    const res = await api('POST', { action: 'set_admin', userId, newRole });
+    if (res.success) { toast('✅ Rôle mis à jour'); fetchAdmins(); fetchAllUsers(); setModal(null); }
+    else { toast('❌ ' + (res.error || 'Erreur'), 'error'); }
+  }
+
+  async function handleRemoveAdmin(userId) {
+    const res = await api('POST', { action: 'remove_admin', userId });
+    if (res.success) { toast('✅ Droits retirés'); fetchAdmins(); fetchAllUsers(); setModal(null); }
+    else { toast('❌ ' + (res.error || 'Erreur'), 'error'); }
+  }
+
+  async function handleDisconnect(userId) {
+    if (!confirm('Déconnecter cet utilisateur de toutes ses sessions ?')) return;
+    const res = await api('POST', { action: 'revoke_sessions', userId });
+    if (res.success) { toast('✅ Utilisateur déconnecté'); }
+    else { toast('❌ ' + (res.error || 'Erreur'), 'error'); }
+  }
+
+  async function handleDeleteUser(userId) {
+    if (!confirm('⚠️ Supprimer définitivement cet utilisateur ? Action irréversible !')) return;
+    const res = await api('POST', { action: 'delete_user', userId });
+    if (res.success) { toast('✅ Utilisateur supprimé'); setModal(null); fetchAdmins(); }
+    else { toast('❌ ' + (res.error || 'Erreur'), 'error'); }
+  }
+
+  async function handleBlockUser(userId) {
+    const res = await api('POST', { action: 'block_user', userId });
+    if (res.success) { toast('✅ Utilisateur bloqué'); fetchAdmins(); }
+    else { toast('❌ ' + (res.error || 'Erreur'), 'error'); }
+  }
+
+  async function handleUnblockUser(userId) {
+    const res = await api('POST', { action: 'unblock_user', userId });
+    if (res.success) { toast('✅ Utilisateur débloqué'); fetchAdmins(); }
+    else { toast('❌ ' + (res.error || 'Erreur'), 'error'); }
+  }
+
   function copySQL(name, sql) {
     navigator.clipboard.writeText(sql);
     setCopied(name);
     setTimeout(() => setCopied(null), 2000);
   }
 
-  const tabs = Object.entries(SETTINGS_SECTIONS).concat([['agents-config', { label: 'Configuration agents', icon: '🤖' }], ['database', { label: 'Base de données', icon: '🗄️' }], ['quick', { label: 'Actions rapides', icon: '⚡' }]]);
+  const tabs = Object.entries(SETTINGS_SECTIONS).concat([['agents-config', { label: 'Configuration agents', icon: '🤖' }], ['users', { label: 'Utilisateurs', icon: '👥' }], ['quick', { label: 'Actions rapides', icon: '⚡' }]]);
+
+  if (!isAdmin) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh',flexDirection:'column',gap:12}}>
+      <div style={{fontSize:'3rem'}}>🔒</div>
+      <h2 style={{fontSize:'1.2rem',fontWeight:700,color:'#333'}}>Accès restreint</h2>
+      <p style={{color:'#999',fontSize:'.85rem'}}>Seuls les administrateurs peuvent accéder aux paramètres.</p>
+    </div>
+  );
 
   return (
     <div>
@@ -217,6 +325,126 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {/* Users Tab */}
+      {tab === 'users' && (
+        <div>
+          <div className="adtw" style={{padding:24,marginBottom:20}}>
+            <h3 className="adst" style={{marginBottom:16}}>➕ Créer un utilisateur</h3>
+            <form onSubmit={handleCreateUser} style={{display:'flex',flexDirection:'column',gap:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div>
+                  <label style={{fontSize:'.72rem',fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Email *</label>
+                  <input className="adsrch" style={{width:'100%'}} type="email" value={createForm.email} onChange={e => setCreateForm(p => ({...p, email: e.target.value}))} required placeholder="exemple@gmail.com"/>
+                </div>
+                <div>
+                  <label style={{fontSize:'.72rem',fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Mot de passe *</label>
+                  <input className="adsrch" style={{width:'100%'}} type="password" value={createForm.password} onChange={e => setCreateForm(p => ({...p, password: e.target.value}))} required placeholder="Min 6 caractères"/>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div>
+                  <label style={{fontSize:'.72rem',fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Nom (optionnel)</label>
+                  <input className="adsrch" style={{width:'100%'}} type="text" value={createForm.nom} onChange={e => setCreateForm(p => ({...p, nom: e.target.value}))} placeholder="Nom affiché"/>
+                </div>
+                <div>
+                  <label style={{fontSize:'.72rem',fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Rôle</label>
+                  <select className="adsrch" style={{width:'100%',cursor:'pointer'}} value={createForm.role} onChange={e => setCreateForm(p => ({...p, role: e.target.value}))}>
+                    <option value="admin">Admin — Accès complet</option>
+                    <option value="viewer">Lecteur — Consultation seule</option>
+                    <option value="super_admin">Super Admin — Accès complet + gestion rôles</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{textAlign:'right',marginTop:4}}>
+                <button type="submit" className="adbtn adbtn-primary">➕ Créer l'utilisateur</button>
+              </div>
+            </form>
+          </div>
+
+          <div className="adtw" style={{marginBottom:20}}>
+            <div style={{padding:'14px 20px',borderBottom:'1px solid #f0f0f0',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+              <h3 className="adst" style={{margin:0}}>👥 Utilisateurs avec accès ({admins.length})</h3>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <input className="adsrch" placeholder="Rechercher..." value={allUsersSearch} onChange={e => setAllUsersSearch(e.target.value)} style={{width:180}}/>
+              </div>
+            </div>
+            {loadingAdmins ? <div className="adld" style={{padding:40}}><div className="adsp"/></div> : (
+              <table className="adtabl">
+                <thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Inscrit le</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {admins.filter(a => !allUsersSearch || a.user?.email?.toLowerCase().includes(allUsersSearch.toLowerCase()) || a.user?.nom?.toLowerCase().includes(allUsersSearch.toLowerCase())).map(a => {
+                    const u = a.user || {};
+                    const isBanned = !!a.user?.banned_until;
+                    const roleLabel = a.role === 'super_admin' ? 'Super Admin' : a.role === 'admin' ? 'Admin' : a.role === 'viewer' ? 'Lecteur' : a.role === 'moderator' ? 'Modérateur' : a.role === 'support' ? 'Support' : '—';
+                    return (
+                    <tr key={a.user_id}>
+                      <td style={{fontWeight:600,display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{width:28,height:28,borderRadius:'50%',background:'linear-gradient(135deg,#007AFF,#5856D6)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'.65rem',fontWeight:700,flexShrink:0}}>
+                          {u.photo ? <img src={u.photo} alt="" style={{width:'100%',height:'100%',borderRadius:'50%',objectFit:'cover'}}/> : u.nom?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        {u.nom}
+                      </td>
+                      <td style={{fontSize:'.78rem',color:'#666'}}>{u.email}</td>
+                      <td><span className="adpill" style={{background: a.role === 'super_admin' ? '#1a1a2e' : a.role === 'admin' ? '#007AFF' : '#f5f5f5', color: a.role === 'super_admin' || a.role === 'admin' ? 'white' : '#666'}}>{roleLabel}</span></td>
+                      <td>{isBanned ? <span className="adpill banned" style={{background:'#fce4ec',color:'#c62828'}}>Bloqué</span> : <span className="adpill actif" style={{background:'#e8f5e9',color:'#2e7d32'}}>Actif</span>}</td>
+                      <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{a.user?.created_at ? new Date(a.user.created_at).toLocaleDateString('fr-FR') : '—'}</td>
+                      <td>
+                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                          <button className="adbtn adbtn-warning adbtn-sm" onClick={() => setModal({type:'role',user:{id:a.user_id,email:u.email,nom:u.nom},adminRole:a.role})}>Rôle</button>
+                          <button className="adbtn adbtn-danger adbtn-sm" onClick={() => handleDisconnect(a.user_id)}>Déconn.</button>
+                          {isBanned
+                            ? <button className="adbtn adbtn-success adbtn-sm" onClick={() => handleUnblockUser(a.user_id)}>Débloquer</button>
+                            : <button className="adbtn adbtn-danger adbtn-sm" onClick={() => handleBlockUser(a.user_id)}>Bloquer</button>
+                          }
+                          <button className="adbtn adbtn-danger adbtn-sm" onClick={() => setModal({type:'delete',user:{id:a.user_id,email:u.email,nom:u.nom}})}>Suppr.</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );})}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Role change modal */}
+          {modal?.type === 'role' && (
+            <div className="admb" onClick={e => {if(e.target===e.currentTarget) setModal(null)}}>
+              <div className="admcont">
+                <div className="admhead"><span className="admtitle">Changer le rôle</span><button className="admclose" onClick={() => setModal(null)}>✕</button></div>
+                <div className="admbody">
+                  <p style={{fontSize:'.82rem',color:'#666',marginBottom:12}}>Utilisateur : <strong>{modal.user?.nom || modal.user?.email}</strong></p>
+                  <p style={{fontSize:'.75rem',color:'#999',marginBottom:12}}>Rôle actuel : <strong>{modal.adminRole ? (modal.adminRole === 'super_admin' ? 'Super Admin' : modal.adminRole === 'admin' ? 'Admin' : 'Lecteur') : 'Aucun'}</strong></p>
+                  {[{value:'admin',label:'Admin',desc:'Accès complet'},{value:'viewer',label:'Lecteur',desc:'Consultation seule'},{value:'super_admin',label:'Super Admin',desc:'Accès complet + gestion rôles'}].filter(o => o.value !== modal.adminRole).map(o => (
+                    <button key={o.value} className="adbtn adbtn-ghost" style={{justifyContent:'flex-start',padding:'10px 14px',fontSize:'.82rem',width:'100%',marginBottom:4}}
+                      onClick={() => handleUpdateRole(modal.user.id, o.value)}>
+                      <strong style={{minWidth:80,display:'inline-block'}}>{o.label}</strong> — {o.desc}
+                    </button>
+                  ))}
+                  {modal.adminRole && <button className="adbtn adbtn-danger adbtn-sm" style={{marginTop:8,width:'100%',justifyContent:'center'}} onClick={() => handleRemoveAdmin(modal.user.id)}>Retirer tous les droits</button>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delete user modal */}
+          {modal?.type === 'delete' && (
+            <div className="admb" onClick={e => {if(e.target===e.currentTarget) setModal(null)}}>
+              <div className="admcont">
+                <div className="admhead"><span className="admtitle">Supprimer l'utilisateur</span><button className="admclose" onClick={() => setModal(null)}>✕</button></div>
+                <div className="admbody">
+                  <p style={{fontSize:'.85rem',color:'#FF3B30',lineHeight:1.6,fontWeight:600}}>⚠️ Action irréversible !</p>
+                  <p style={{fontSize:'.85rem',color:'#666',lineHeight:1.6}}>Toutes les données de <strong>{modal.user?.nom || modal.user?.email}</strong> seront supprimées.</p>
+                </div>
+                <div className="admact">
+                  <button className="adbtn adbtn-ghost" onClick={() => setModal(null)}>Annuler</button>
+                  <button className="adbtn adbtn-danger" onClick={() => handleDeleteUser(modal.user.id)}>Supprimer</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* General Tab */}
       {tab === 'general' && (

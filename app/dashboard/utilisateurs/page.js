@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const ROLES_MAP = { super_admin:'Super Admin', admin:'Admin', moderator:'Modérateur', support:'Support' };
+const ROLES_MAP = { super_admin:'Super Admin', admin:'Admin', moderator:'Modérateur', support:'Support', viewer:'Lecteur' };
 
 export default function Utilisateurs() {
+  const { isAdmin, role: currentRole } = useRole();
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -86,11 +88,12 @@ export default function Utilisateurs() {
                   <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{new Date(u.created_at).toLocaleDateString('fr-FR')}</td>
                   <td>
                     <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                      {!u.banned&&role==='super_admin'&&<button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'block',user:u})}>Bloquer</button>}
-                      {u.banned&&<button className="adbtn adbtn-success adbtn-sm" onClick={()=>exec('unblock_user',{userId:u.id})}>Débloquer</button>}
-                      {role==='super_admin'&&<button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'admin_role',user:u})}>Rôle</button>}
-                      {role==='super_admin'&&<button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'abonnement',user:u})}>Abonnement</button>}
-                      {role==='super_admin'&&<button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete',user:u})}>Suppr.</button>}
+                      {isAdmin && !u.banned && currentRole==='super_admin' && <button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'block',user:u})}>Bloquer</button>}
+                      {isAdmin && u.banned && <button className="adbtn adbtn-success adbtn-sm" onClick={()=>exec('unblock_user',{userId:u.id})}>Débloquer</button>}
+                      {isAdmin && currentRole==='super_admin' && <button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'admin_role',user:u})}>Rôle</button>}
+                      {isAdmin && currentRole==='super_admin' && <button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'abonnement',user:u})}>Abonnement</button>}
+                      {isAdmin && currentRole==='super_admin' && <button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete',user:u})}>Suppr.</button>}
+                      {isAdmin && currentRole==='super_admin' && <button className="adbtn adbtn-ghost adbtn-sm" onClick={()=>exec('revoke_sessions',{userId:u.id})}>Déconnecter</button>}
                       <button className="adbtn adbtn-primary adbtn-sm" onClick={()=>window.open(`https://odamarket.vercel.app/boutique/${u.id}`,'_blank')}>Boutique</button>
                     </div>
                   </td>
@@ -148,12 +151,24 @@ export default function Utilisateurs() {
       {modal?.type==='abonnement'&&(
         <div className="admb" onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}>
           <div className="admcont">
-            <div className="admhead"><span className="admtitle">Abonnement</span><button className="admclose" onClick={()=>setModal(null)}>✕</button></div>
+            <div className="admhead"><span className="admtitle">Changer d'abonnement</span><button className="admclose" onClick={()=>setModal(null)}>✕</button></div>
             <div className="admbody">
-              <p style={{fontSize:'.82rem',color:'#666',marginBottom:12}}><strong>{modal.user.nom}</strong> — actuel : {modal.user.abonnement}</p>
-              {[{plan:'gratuit',limite:10,label:'Gratuit — 10'},{plan:'basique',limite:50,label:'Basique — 50'},{plan:'pro',limite:200,label:'Pro — 200'},{plan:'illimité',limite:9999,label:'Illimité'}].map(o=>(
+              <p style={{fontSize:'.82rem',color:'#666',marginBottom:4}}><strong>{modal.user.nom}</strong></p>
+              <p style={{fontSize:'.78rem',color:'#8e8e93',marginBottom:16}}>Plan actuel : <strong>{modal.user.abonnement}</strong></p>
+              {[
+                {plan:'gratuit',limite:10,label:'🌱 Gratuit',desc:'10 produits'},
+                {plan:'starter',limite:80,label:'⚡ Starter',desc:'80 produits — 1 000 FCFA/mois'},
+                {plan:'business',limite:150,label:'🏆 Business',desc:'150 produits — 1 500 FCFA/mois'},
+                {plan:'premium',limite:250,label:'👑 Premium',desc:'250 produits — 2 500 FCFA/mois'},
+              ].map(o=>(
                 <button key={o.plan} className="adbtn adbtn-ghost" style={{justifyContent:'flex-start',padding:'10px 14px',fontSize:'.82rem',width:'100%',marginBottom:4}}
-                  onClick={()=>exec('update_abonnement',{userId:modal.user.id,plan:o.plan,limiteProduits:o.limite})}>{o.label} produits</button>
+                  onClick={()=>{
+                    if(modal.user.abonnement===o.plan){showToast('Utilisateur déjà sur ce plan','info');return;}
+                    exec('update_abonnement',{userId:modal.user.id,plan:o.plan,limiteProduits:o.limite,fromPlan:modal.user.abonnement});
+                  }}>
+                  <span style={{marginRight:8}}>{o.label}</span>
+                  <span style={{fontSize:'.72rem',color:'#8e8e93',marginLeft:'auto'}}>{o.desc}</span>
+                </button>
               ))}
             </div>
           </div>

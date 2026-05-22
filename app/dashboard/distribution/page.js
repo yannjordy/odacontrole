@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -8,6 +9,7 @@ const supabase = createClient(
 );
 
 export default function DistributionPage() {
+  const { isAdmin } = useRole();
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,7 +54,7 @@ export default function DistributionPage() {
           <p>Générer des liens, QR codes et campagnes pour distribuer les applications</p>
         </div>
         <div style={{flex:1}}/>
-        <button className="adbtn adbtn-primary" onClick={createCampaign}>+ Nouvelle campagne</button>
+        {isAdmin && (<button className="adbtn adbtn-primary" onClick={createCampaign}>+ Nouvelle campagne</button>)}
       </div>
 
       {/* Apps quick links */}
@@ -106,9 +108,9 @@ export default function DistributionPage() {
                     <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
                     <td>
                       <div style={{display:'flex',gap:6}}>
-                        <button className={`adbtn adbtn-sm ${c.status === 'active' ? 'adbtn-warning' : 'adbtn-success'}`} onClick={() => toggleStatus(c.id, c.status)}>
+                        {isAdmin && (<button className={`adbtn adbtn-sm ${c.status === 'active' ? 'adbtn-warning' : 'adbtn-success'}`} onClick={() => toggleStatus(c.id, c.status)}>
                           {c.status === 'active' ? '⏸️ Pause' : '▶️ Activer'}
-                        </button>
+                        </button>)}
                         <button className="adbtn adbtn-sm adbtn-ghost" onClick={() => {
                           if (c.short_link) navigator.clipboard.writeText(c.short_link);
                           const url = c.target_url;

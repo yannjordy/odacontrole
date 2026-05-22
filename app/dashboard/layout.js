@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { SvgIcon } from '../../lib/icons';
+import { RoleContext, ADMIN_ROLES, VIEWER_ROLES } from './RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -219,6 +220,26 @@ body{background:#f1f3f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Ro
   .kpi-grid{grid-template-columns:1fr}
   .agent-grid{grid-template-columns:1fr}
 }
+@media(prefers-color-scheme:dark){
+  body{background:#0f0f13 !important;color:#e5e5e7 !important}
+  .oda-topbar,.oda-sidebar,.oda-statusbar,.kpi,.agent-card,.stage,.chat-area,.chat-header,.chat-messages,.admh,.adsb{background:#1c1c24 !important;border-color:#2c2c36 !important}
+  .oda-pill{border-color:#2c2c36 !important;color:#e5e5e7 !important}
+  .oda-content{background:#0f0f13 !important}
+  .oda-nav-btn:hover{background:#2c2c36 !important;color:#e5e5e7 !important}
+  .oda-nav-btn.active{background:#2a2a3e !important;color:#7b7bff !important}
+  .chat-input-bar input,.log-console{background:#15151c !important;border-color:#2c2c36 !important;color:#e5e5e7 !important}
+  .msg.assistant .msg-bubble{background:#15151c !important;border-color:#2c2c36 !important;color:#e5e5e7 !important}
+  .msg.user .msg-bubble{background:#2a2a3e !important;color:#e5e5e7 !important}
+  .kpi-label,.agent-action,.stage-label,.res-chip,.msg-meta,.log-time,.log-msg{color:#e5e5e7 !important}
+  .kpi-val,.stage-count,.agent-name,.chat-title,.oda-logo{color:#e5e5e7 !important}
+  .adc,.adtw,.adtabl th,.adtabl td{background:#1c1c24 !important;border-color:#2c2c36 !important;color:#e5e5e7 !important}
+  .adtabl th{background:#15151c !important;color:#e5e5e7 !important}
+  .adtabl tr:hover td{background:#2c2c36 !important}
+  .adsrch{background:#15151c !important;border-color:#2c2c36 !important;color:#e5e5e7 !important}
+  .admcont,.admhead,.admbody,.admact{background:#1c1c24 !important;border-color:#2c2c36 !important}
+  .admclose{background:#2c2c36 !important;color:#e5e5e7 !important}
+  .adempty-text{color:#e5e5e7 !important}
+}
 `;
 
 const NAV = [
@@ -253,6 +274,9 @@ export default function DashboardLayout({ children }) {
     if (!document.getElementById('odal-css')) document.head.appendChild(s);
     const tick = () => setTime(new Date().toLocaleTimeString('fr-FR'));
     tick(); const si = setInterval(tick, 1000);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
     return () => clearInterval(si);
   }, []);
 
@@ -286,16 +310,27 @@ export default function DashboardLayout({ children }) {
     <style>{`@keyframes oda-spin{to{transform:rotate(360deg)}}`}</style>
     <span>Vérification...</span>
   </div>;
-  if (role === false) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',flexDirection:'column',gap:12}}>
-    <SvgIcon name="shield" size={48} color="#999"/>
-    <h2 style={{fontSize:'1.2rem',fontWeight:700,color:'#333'}}>Accès restreint</h2>
-    <p style={{color:'#999',fontSize:'.85rem'}}>Vous n'avez pas les droits d'administration.</p>
+  if (role === false) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',flexDirection:'column',gap:16,background:'#0f0f13'}}>
+    <style>{`@keyframes adspin{to{transform:rotate(360deg)}}`}</style>
+    <SvgIcon name="shield" size={64} color="#FF3B30"/>
+    <h1 style={{fontSize:'2rem',fontWeight:800,color:'#FF3B30',letterSpacing:'0.02em'}}>403</h1>
+    <h2 style={{fontSize:'1.1rem',fontWeight:600,color:'#e5e5e7'}}>Accès interdit</h2>
+    <p style={{color:'#8e8e93',fontSize:'.85rem',textAlign:'center',maxWidth:320}}>Vous n'avez pas les droits nécessaires pour accéder à Odacontrol.</p>
+    <button onClick={()=>{supabase.auth.signOut();window.location.href='/connexion'}} style={{marginTop:8,padding:'10px 24px',borderRadius:10,border:'none',background:'#1a1a2e',color:'white',fontSize:'.85rem',fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Retour à la connexion</button>
   </div>;
 
-  const ROLES_MAP = { super_admin:'Super Admin', admin:'Admin', moderator:'Modérateur', support:'Support' };
+  const ROLES_MAP = { super_admin:'Super Admin', admin:'Admin', moderator:'Modérateur', support:'Support', viewer:'Lecteur' };
   const pageName = NAV.find(n => n.path === pathname)?.label || 'Tableau de bord';
 
+  const allowedNav = NAV.filter(item => {
+    if (item.path === '/dashboard/parametres' && !ADMIN_ROLES.includes(role)) return false;
+    return true;
+  });
+
+  const roleCtx = { user, role, isAdmin: ADMIN_ROLES.includes(role), isViewer: VIEWER_ROLES.includes(role) };
+
   return (
+    <RoleContext.Provider value={roleCtx}>
     <div className="oda-shell">
       <div className="oda-topbar">
         <div className="oda-logo">
@@ -319,7 +354,7 @@ export default function DashboardLayout({ children }) {
 
       <div className="oda-body">
         <nav className={`oda-sidebar${sidebarOpen?' open':''}`}>
-          {NAV.map(item => (
+          {allowedNav.map(item => (
             <a key={item.path} href={item.path} className={`oda-nav-btn${pathname===item.path?' active':''}`}
               onClick={e=>{e.preventDefault();router.push(item.path);if(window.innerWidth<768)setSidebarOpen(false)}} title={item.label}>
               <span className="icon-only"><SvgIcon name={item.icon} size={18} color="currentColor"/></span>
@@ -341,5 +376,6 @@ export default function DashboardLayout({ children }) {
         <span>Douala, CM</span>
       </div>
     </div>
+    </RoleContext.Provider>
   );
 }

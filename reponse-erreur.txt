@@ -1,0 +1,1 @@
+Reponse: {"error":"The phone field must be a valid number. (and 1 more error)","raw":{"code":"422","status":"Unprocessable Content","message":"The phone field must be a valid number. (and 1 more error)","errors":{"customer":["The phone field must be a valid number."],"customer.phone":["The customer.phone field must be a valid number."]}}}

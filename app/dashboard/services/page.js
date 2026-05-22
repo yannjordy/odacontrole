@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,6 +10,7 @@ const supabase = createClient(
 );
 
 export default function Services() {
+  const { isAdmin } = useRole();
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -77,10 +79,10 @@ export default function Services() {
                     <td><span className={`adpill ${s.statut==='actif'?'actif':s.statut==='inactif'?'inactif':'banned'}`}>{s.statut}</span></td>
                     <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
                     <td>
-                      <div style={{display:'flex',gap:4}}>
+                      {isAdmin && <div style={{display:'flex',gap:4}}>
                         <button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'service_statut',item:s})}>Statut</button>
                         <button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete_service',item:s})}>Suppr.</button>
-                      </div>
+                      </div>}
                     </td>
                   </tr>
                 ))}

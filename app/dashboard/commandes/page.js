@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,6 +10,7 @@ const supabase = createClient(
 );
 
 export default function Commandes() {
+  const { isAdmin } = useRole();
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -94,7 +96,7 @@ export default function Commandes() {
                     <td style={{fontWeight:600}}>{(c.montant_total||0).toLocaleString('fr-FR')} F</td>
                     <td><span className={`adpill ${c.statut==='livree'||c.statut==='payee'?'actif':c.statut==='en_cours'||c.statut==='en_attente'?'en_attente':'inactif'}`}>{c.statut}</span></td>
                     <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{new Date(c.created_at).toLocaleDateString('fr-FR')}</td>
-                    <td><button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete_commande',item:c})}>Suppr.</button></td>
+                    <td>{isAdmin && <button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete_commande',item:c})}>Suppr.</button>}</td>
                   </tr>
                 ))}
               </tbody>

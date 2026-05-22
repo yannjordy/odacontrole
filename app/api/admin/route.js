@@ -294,11 +294,18 @@ export async function POST(req) {
     }
     if (action === 'set_admin') {
       await admin.from('admin_roles').upsert({ user_id: body.userId, role: body.newRole, created_by: adminId }, { onConflict: 'user_id' });
+      const { data: target } = await admin.auth.admin.getUserById(body.userId);
+      const meta = target?.user?.user_metadata || {};
+      await admin.auth.admin.updateUserById(body.userId, { user_metadata: { ...meta, admin_role: body.newRole } });
       await log(admin, adminId, 'set_admin', 'admin_roles', body.userId, { role: body.newRole });
       return NextResponse.json({ success: true });
     }
     if (action === 'remove_admin') {
       await admin.from('admin_roles').delete().eq('user_id', body.userId);
+      const { data: target } = await admin.auth.admin.getUserById(body.userId);
+      const meta = target?.user?.user_metadata || {};
+      const { admin_role, ...rest } = meta;
+      await admin.auth.admin.updateUserById(body.userId, { user_metadata: rest });
       await log(admin, adminId, 'remove_admin', 'admin_roles', body.userId);
       return NextResponse.json({ success: true });
     }
@@ -308,8 +315,42 @@ export async function POST(req) {
       return NextResponse.json({ success: true });
     }
     if (action === 'update_abonnement') {
-      await admin.from('abonnements').upsert({ user_id: body.userId, plan: body.plan||'gratuit', limite_produits: body.limiteProduits||10, statut: 'actif' }, { onConflict: 'user_id' });
-      await log(admin, adminId, 'update_abonnement', 'utilisateur', body.userId, { plan: body.plan });
+      const { data: existing } = await admin.from('abonnements').select('plan').eq('user_id', body.userId).single();
+      const oldPlan = existing?.plan || 'gratuit';
+
+      await admin.from('abonnements').upsert({
+        user_id: body.userId,
+        plan: body.plan || 'gratuit',
+        limite_produits: body.limiteProduits || 10,
+        statut: 'actif',
+        date_debut: new Date().toISOString(),
+        date_expiration: new Date(Date.now() + 30 * 86400000).toISOString(),
+      }, { onConflict: 'user_id' });
+
+      await log(admin, adminId, 'update_abonnement', 'utilisateur', body.userId, {
+        from: oldPlan,
+        to: body.plan,
+      });
+
+      try {
+        const { data: target } = await admin.auth.admin.getUserById(body.userId);
+        const notif = {
+          type: 'plan_changed',
+          from: oldPlan,
+          to: body.plan,
+          changedBy: adminId,
+          timestamp: new Date().toISOString(),
+        };
+        const currentMeta = target?.user?.user_metadata || {};
+        const notifs = currentMeta.notifications || [];
+        notifs.unshift(notif);
+        await admin.auth.admin.updateUserById(body.userId, {
+          user_metadata: { ...currentMeta, notifications: notifs.slice(0, 50) },
+        });
+      } catch (e) {
+        console.warn('Failed to store notification in user metadata:', e);
+      }
+
       return NextResponse.json({ success: true });
     }
 
@@ -341,6 +382,52 @@ export async function POST(req) {
       await admin.from('commandes').delete().eq('id', body.commandeId);
       await log(admin, adminId, 'delete_commande', 'commande', body.commandeId);
       return NextResponse.json({ success: true });
+    }
+
+    if (action === 'create_user') {
+      const { email, password, role: newUserRole, nom } = body;
+      if (!email || !password) return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 });
+      const meta = { display_name: nom || email.split('@')[0] };
+      if (newUserRole) meta.admin_role = newUserRole;
+      const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
+        email, password, email_confirm: true,
+        user_metadata: meta,
+      });
+      if (createErr) return NextResponse.json({ error: createErr.message }, { status: 400 });
+      if (newUserRole && ['super_admin', 'admin'].includes(newUserRole)) {
+        await admin.from('admin_roles').upsert({ user_id: newUser.user.id, role: newUserRole, created_by: adminId }, { onConflict: 'user_id' });
+      }
+      await log(admin, adminId, 'create_user', 'utilisateur', newUser.user.id, { email, role: newUserRole });
+      return NextResponse.json({ success: true, user: { id: newUser.user.id, email } });
+    }
+
+    if (action === 'revoke_sessions') {
+      const { userId } = body;
+      if (!userId) return NextResponse.json({ error: 'userId requis' }, { status: 400 });
+      await admin.auth.admin.signOut(userId);
+      await log(admin, adminId, 'revoke_sessions', 'utilisateur', userId);
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'admin_list') {
+      const { data: roles } = await admin.from('admin_roles').select('*').order('created_at', { ascending: false });
+      const userIds = (roles||[]).map(r => r.user_id);
+      const userMap = {};
+      if (userIds.length) {
+        const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 10000 });
+        (users||[]).filter(u => userIds.includes(u.id)).forEach(u => {
+          userMap[u.id] = {
+            email: u.email,
+            nom: u.user_metadata?.display_name || u.user_metadata?.name || u.email?.split('@')[0],
+            photo: u.user_metadata?.avatar_url || null,
+            banned_until: u.banned_until,
+            created_at: u.created_at,
+          };
+        });
+      }
+      return NextResponse.json({
+        admins: (roles||[]).map(r => ({ ...r, user: userMap[r.user_id]||{ email: r.user_id, nom: r.user_id.slice(0,8) } })),
+      });
     }
 
     return NextResponse.json({ error: 'Action inconnue' }, { status: 400 });

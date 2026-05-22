@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,6 +10,7 @@ const supabase = createClient(
 );
 
 export default function Produits() {
+  const { isAdmin } = useRole();
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -77,10 +79,10 @@ export default function Produits() {
                     <td><span className={`adpill ${p.statut==='published'?'actif':p.statut==='draft'?'inactif':p.statut==='suspended'?'banned':'inactif'}`}>{p.statut}</span></td>
                     <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{new Date(p.created_at).toLocaleDateString('fr-FR')}</td>
                     <td>
-                      <div style={{display:'flex',gap:4}}>
+                      {isAdmin && <div style={{display:'flex',gap:4}}>
                         <button className="adbtn adbtn-warning adbtn-sm" onClick={()=>setModal({type:'produit_statut',item:p})}>Statut</button>
                         <button className="adbtn adbtn-danger adbtn-sm" onClick={()=>setModal({type:'delete_produit',item:p})}>Suppr.</button>
-                      </div>
+                      </div>}
                     </td>
                   </tr>
                 ))}

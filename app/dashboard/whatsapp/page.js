@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -10,6 +11,7 @@ const supabase = createClient(
 const AGENT_COLORS = { contact:'#16A34A', whatsapp_followup:'#059669', onboarding:'#EA580C' };
 
 export default function WhatsAppPage() {
+  const { isAdmin } = useRole();
   const [messages, setMessages] = useState([]);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ export default function WhatsAppPage() {
           <p>Centre de communication avec les vendeurs</p>
         </div>
         <div style={{flex:1}}/>
-        <button className="adbtn adbtn-primary" onClick={sendMessage}>✏️ Nouveau message</button>
+        {isAdmin && (<button className="adbtn adbtn-primary" onClick={sendMessage}>✏️ Nouveau message</button>)}
       </div>
 
       {/* Stats */}

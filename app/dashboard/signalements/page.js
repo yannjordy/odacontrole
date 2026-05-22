@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,6 +10,7 @@ const supabase = createClient(
 );
 
 export default function Signalements() {
+  const { isAdmin } = useRole();
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -63,10 +65,10 @@ export default function Signalements() {
                   <td style={{maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.raison}</td>
                   <td><span className={`adpill ${s.statut}`}>{s.statut}</span></td>
                   <td style={{fontSize:'.72rem',color:'#8e8e93'}}>{new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
-                  <td>{s.statut==='en_attente'?<div style={{display:'flex',gap:4}}>
+                  <td>{isAdmin && s.statut==='en_attente'?<div style={{display:'flex',gap:4}}>
                     <button className="adbtn adbtn-success adbtn-sm" onClick={()=>exec('traiter_signalement',{signalementId:s.id,statut:'resolu',actionPrise:'Aucune action'})}>✅ Approuver</button>
                     <button className="adbtn adbtn-danger adbtn-sm" onClick={()=>exec('traiter_signalement',{signalementId:s.id,statut:'rejete',actionPrise:'Rejeté'})}>❌ Rejeter</button>
-                  </div>:<span style={{fontSize:'.72rem',color:'#8e8e93'}}>Traité</span>}</td>
+                  </div>:<span style={{fontSize:'.72rem',color:'#8e8e93'}}>{s.statut==='en_attente' ? 'En attente' : 'Traité'}</span>}</td>
                 </tr>
               ))}
             </tbody>

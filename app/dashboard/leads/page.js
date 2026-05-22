@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -14,6 +15,7 @@ const STATUS_MAP = { 'new':'new', 'contacted':'contacted', 'consented':'consente
 function effectiveStatus(lead) { return lead.status === 'contacted' && lead.consent_given ? 'consented' : (STATUS_MAP[lead.status] || lead.status); }
 
 export default function LeadsPage() {
+  const { isAdmin } = useRole();
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,7 @@ export default function LeadsPage() {
           <p>Prospects → Consentement → Boutique → Validation</p>
         </div>
         <div style={{flex:1}}/>
-        <button className="adbtn adbtn-primary" onClick={() => setModal({ type: 'add' })}>+ Nouveau lead</button>
+        {isAdmin && (<button className="adbtn adbtn-primary" onClick={() => setModal({ type: 'add' })}>+ Nouveau lead</button>)}
       </div>
 
       {/* Funnel stats */}
@@ -135,9 +137,9 @@ export default function LeadsPage() {
                   <td style={{fontSize:'.75rem',color:'#8e8e93'}}>{new Date(lead.created_at).toLocaleDateString('fr-FR')}</td>
                   <td>
                     <div style={{display:'flex',gap:6}}>
-                      <select className="adpbtn" style={{padding:'4px 8px',fontSize:'.7rem'}} value={effectiveStatus(lead)} onChange={e => updateLeadStatus(lead.id, e.target.value)}>
+                      {isAdmin && (<select className="adpbtn" style={{padding:'4px 8px',fontSize:'.7rem'}} value={effectiveStatus(lead)} onChange={e => updateLeadStatus(lead.id, e.target.value)}>
                         {STATUS_FLOW.concat(['rejected','inactive']).map(st => <option key={st} value={st}>{STATUS_LABELS[st]}</option>)}
-                      </select>
+                      </select>)}
                       <button className="adpbtn" onClick={() => setModal(lead)} style={{fontSize:'.7rem',padding:'4px 8px'}}>Détails</button>
                     </div>
                   </td>
@@ -185,7 +187,7 @@ export default function LeadsPage() {
               <div style={{marginTop:16}}>
                 <div style={{fontSize:'.7rem',fontWeight:600,color:'#8e8e93',marginBottom:8}}>Pipeline</div>
                 <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {STATUS_FLOW.map(st => (
+                  {isAdmin && STATUS_FLOW.map(st => (
                     <button key={st} onClick={() => updateLeadStatus(modal.id, st)}
                       style={{padding:'6px 12px',borderRadius:8,border:'none',fontSize:'.72rem',fontWeight:600,cursor:'pointer',
                         background: effectiveStatus(modal) === st ? STATUS_COLORS[st] : '#f0f0f0',
@@ -251,7 +253,7 @@ function AddLeadModal({ onClose, onCreated, supabase }) {
         </div>
         <div className="admact">
           <button className="adbtn adbtn-ghost" onClick={onClose}>Annuler</button>
-          <button className="adbtn adbtn-primary" onClick={save} disabled={saving}>{saving ? 'Création...' : 'Créer le lead'}</button>
+          {isAdmin && (<button className="adbtn adbtn-primary" onClick={save} disabled={saving}>{saving ? 'Création...' : 'Créer le lead'}</button>)}
         </div>
       </div>
     </div>

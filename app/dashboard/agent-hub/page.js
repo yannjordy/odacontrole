@@ -2,20 +2,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { SvgIcon } from '../../../lib/icons';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const AGENTS = [
-  { key: 'orchestrator', name: 'DeerFlow', role: 'Orchestrateur IA', color: '#3B82F6', float: 'f0', cpu: 34, ram: 512,
+  { key: 'orchestrator', name: 'Kwelly', role: 'Orchestrateur IA', color: '#3B82F6', float: 'f0', cpu: 34, ram: 512,
     desc: "Chef d'orchestre du système. Planifie, délègue, synchronise tous les agents et consolide les résultats finaux.",
     tasks: ['Coordination globale des agents', 'Planification et priorisation', 'Gestion des dépendances', 'Consolidation des rapports finaux'],
     feed: ['Pipeline Mode Douala lancé', '3 agents activés en parallèle', 'Rapport final envoyé'],
     metrics: { runs: 1204, success: 1198, tokens: '2.4M' }, thoughts: ['Je coordonne tout', 'Délégation à SA-1...', 'Pipeline en cours', 'Résultats consolidés'],
     problems: ['Agent lent...', 'Données manquantes', 'Connexion instable'], errors: ['Erreur 503', 'Timeout dépassé', 'Réponse invalide'],
-    greeting: 'Bonjour, je suis DeerFlow, votre orchestrateur principal. Je coordonne tous les agents du système ODA.',
+    greeting: 'Bonjour, je suis Kwelly, votre orchestrateur principal. Je coordonne tous les agents du système ODA.',
     wakeAnim: 'fadeScaleUp', comms: [{ to: 'supervisor', msg: 'Lance le contrôle qualité !' }, { to: 'research', msg: 'Trouve 50 vendeurs Mode Douala' }],
     requires: { db: 'Base de données PostgreSQL', api: false, tools: ['Orchestrateur de flux'] } },
   { key: 'supervisor', name: 'Paul', role: 'Superviseur Qualité', color: '#E91E90', float: 'f1', cpu: 12, ram: 128,
     desc: 'Vérifie la qualité de chaque étape du pipeline. Valide ou rejette les résultats.',
-    tasks: ['Validation qualité chaque étape', 'Déclenchement corrections auto', 'Rapport QA à DeerFlow', 'Gestion des retries'],
+    tasks: ['Validation qualité chaque étape', 'Déclenchement corrections auto', 'Rapport QA à Kwelly', 'Gestion des retries'],
     feed: ['Boutique#34 : PASS', 'Lead#51 données incomplètes', 'Retry déclenché x1'],
     metrics: { runs: 892, success: 881, tokens: '890K' }, thoughts: ['Vérification boutique...', 'Qualité insuffisante', 'Tout semble correct !'],
     greeting: 'Bonjour, je suis Paul, superviseur qualité. Je valide chaque étape avant publication.',
@@ -29,12 +30,12 @@ const AGENTS = [
     greeting: 'Bonjour, je suis Sarah. Je parcours les réseaux pour trouver les meilleurs vendeurs.',
     wakeAnim: 'slideUp', comms: [{ to: 'orchestrator', msg: '47 nouveaux leads !' }, { to: 'contact', msg: 'Liste prête !' }],
     requires: { db: 'Base de données', api: 'API Facebook/Instagram ou Playwright', tools: ['Scraper web', 'Parsing HTML'] } },
-  { key: 'contact', name: 'Marc', role: 'Agent Contact', color: '#16A34A', float: 'f0', cpu: 18, ram: 192,
+  { key: 'contact', name: 'Farida', role: 'Agent Contact', color: '#16A34A', float: 'f0', cpu: 18, ram: 192,
     desc: "Contacte les vendeurs via WhatsApp. Présente l'offre ODA gratuite.",
     tasks: ['Envoi messages WhatsApp', 'Présentation offre ODA', 'Collecte consentement', 'Arrêt si refus'],
     feed: ['89 messages envoyés', '61/89 consentements', 'Template B : meilleur taux'],
     metrics: { runs: 213, success: 154, tokens: '678K' }, thoughts: ['Bonjour !', 'Template B est mieux', 'Consentement obtenu !'],
-    greeting: 'Bonjour, je suis Marc. Je contacte les vendeurs et les aide à rejoindre ODA.',
+    greeting: 'Bonjour, je suis Farida. Je contacte les vendeurs et les aide à rejoindre ODA.',
     wakeAnim: 'bounceIn', comms: [{ to: 'orchestrator', msg: '61 consentements !' }, { to: 'onboarding', msg: 'Lead#42 prêt' }],
     requires: { db: 'Base de données', api: 'WhatsApp Business API (clé API requise)', tools: ['Template messages WhatsApp'] } },
   { key: 'onboarding', name: 'Fatou', role: 'Agent Onboarding', color: '#EA580C', float: 'f1', cpu: 8, ram: 96,
@@ -61,12 +62,12 @@ const AGENTS = [
     greeting: 'Bonjour, je suis Awa. Je publie les produits avec des descriptions attrayantes.',
     wakeAnim: 'expandIn', comms: [{ to: 'supervisor', msg: '12/12 publiés' }, { to: 'orchestrator', msg: 'Boutique#34 prête' }],
     requires: { db: 'Base de données', api: false, tools: ['Analyseur images', 'Générateur descriptions'] } },
-  { key: 'whatsapp_followup', name: 'Yann', role: 'Agent Suivi WhatsApp', color: '#059669', float: 'f1', cpu: 6, ram: 64,
+  { key: 'whatsapp_followup', name: 'Oceane', role: 'Agent Suivi WhatsApp', color: '#059669', float: 'f1', cpu: 6, ram: 64,
     desc: "Envoie le lien boutique et les identifiants. Demande la validation finale du vendeur.",
     tasks: ['Envoi lien boutique', 'Guide téléchargement app', 'Demande validation finale', 'Activation/suppression'],
     feed: ['Boutique#34 validée', '28/34 boutiques actives', '6 en attente réponse'],
     metrics: { runs: 34, success: 28, tokens: '234K' }, thoughts: ['Votre boutique est prête !', 'Il a dit OUI !', 'Activation !'],
-    greeting: 'Bonjour, je suis Yann. Je transmets les accès et valide les boutiques.',
+    greeting: 'Bonjour, je suis Oceane. Je transmets les accès et valide les boutiques.',
     wakeAnim: 'gentleRise', comms: [{ to: 'orchestrator', msg: 'Boutique#34 validée !' }, { to: 'supervisor', msg: 'Validation OK' }],
     requires: { db: 'Base de données', api: 'WhatsApp Business API (clé API requise)', tools: ['Template validation boutique'] } },
   { key: 'marketing', name: 'Eve', role: 'Agent Marketing', color: '#CA8A04', float: 'f2', cpu: 10, ram: 80,
@@ -190,16 +191,17 @@ function AgentHead({ agent, status, size = 120, blink, lookDir, tilt, thought, c
 }
 
 export default function AgentHubPage() {
+  const { isAdmin } = useRole();
   const [selected, setSelected] = useState(null);
   const [statuses, setStatuses] = useState(STATUSES_INIT);
   const [disabled, setDisabled] = useState({});
   const [anims, setAnims] = useState({});
   const [feedItems, setFeedItems] = useState([
-    { time: '14:41:03', from: 'Marc', to: 'DeerFlow', msg: '61 consentements obtenus !', color: '#16A34A' },
+    { time: '14:41:03', from: 'Farida', to: 'Kwelly', msg: '61 consentements obtenus !', color: '#16A34A' },
     { time: '14:40:58', from: 'Paul', to: 'Fatou', msg: 'Données incomplètes, relance !', color: '#E91E90' },
-    { time: '14:40:52', from: 'Awa', to: 'DeerFlow', msg: 'Boutique#34 prête à valider !', color: '#A855F7' },
-    { time: '14:40:44', from: 'Sarah', to: 'Marc', msg: 'Liste prête, à toi de jouer !', color: '#B45309' },
-    { time: '14:40:31', from: 'Yann', to: 'DeerFlow', msg: 'Boutique#34 validée par vendeur !', color: '#059669' },
+    { time: '14:40:52', from: 'Awa', to: 'Kwelly', msg: 'Boutique#34 prête à valider !', color: '#A855F7' },
+    { time: '14:40:44', from: 'Sarah', to: 'Farida', msg: 'Liste prête, à toi de jouer !', color: '#B45309' },
+    { time: '14:40:31', from: 'Oceane', to: 'Kwelly', msg: 'Boutique#34 validée par vendeur !', color: '#059669' },
   ]);
   const [kpis, setKpis] = useState({ leads: 247, shops: 34, conv: 13.8 });
   const [waitingAgents, setWaitingAgents] = useState({});
@@ -320,7 +322,7 @@ export default function AgentHubPage() {
     const runStage = (stageIdx) => {
       if (stageIdx >= batches.length) {
         setStatuses(prev => ({ ...prev, orchestrator: 'success' }));
-        setFeedItems(p => [{ time: now(), from: 'DeerFlow', to: 'Tous', msg: `✅ Pipeline terminé — ${total} contacts traités !`, color: '#3B82F6', urgent: true }, ...p.slice(0, 7)]);
+        setFeedItems(p => [{ time: now(), from: 'Kwelly', to: 'Tous', msg: `✅ Pipeline terminé — ${total} contacts traités !`, color: '#3B82F6', urgent: true }, ...p.slice(0, 7)]);
         writeLog({ action: 'pipeline_end', severity: 'info', agent_key: 'orchestrator', details: { total_contacts: total, status: 'success' } });
         return;
       }
@@ -337,10 +339,10 @@ export default function AgentHubPage() {
         updateAnim('research', { thought: `✅ ${batch.length} contacts qualifiés !` });
         setTimeout(() => updateAnim('research', { thought: null }), 1500);
 
-        // Stage 2: Marc (Contact) sends messages
+        // Stage 2: Farida (Contact) sends messages
         setStatuses(prev => ({ ...prev, contact: 'running' }));
         updateAnim('contact', { thought: `💬 Contact lot ${stageIdx+1}...` });
-        setFeedItems(p => [{ time: now(), from: 'Marc', to: 'Sarah', msg: `📨 Envoi WhatsApp à ${batch.length} contacts`, color: '#16A34A' }, ...p.slice(0, 7)]);
+        setFeedItems(p => [{ time: now(), from: 'Farida', to: 'Sarah', msg: `📨 Envoi WhatsApp à ${batch.length} contacts`, color: '#16A34A' }, ...p.slice(0, 7)]);
 
         setTimeout(() => {
           const consented = Math.floor(batch.length * (0.5 + Math.random() * 0.3));
@@ -348,13 +350,13 @@ export default function AgentHubPage() {
           updateAnim('contact', { thought: `✅ ${consented}/${batch.length} consentements !` });
           setTimeout(() => updateAnim('contact', { thought: null }), 1500);
           setKpis(p => ({ ...p, leads: p.leads + consented }));
-          setFeedItems(p => [{ time: now(), from: 'Marc', to: 'DeerFlow', msg: `📊 ${consented} consentements obtenus sur lot ${stageIdx+1}`, color: '#16A34A', urgent: true }, ...p.slice(0, 7)]);
+          setFeedItems(p => [{ time: now(), from: 'Farida', to: 'Kwelly', msg: `📊 ${consented} consentements obtenus sur lot ${stageIdx+1}`, color: '#16A34A', urgent: true }, ...p.slice(0, 7)]);
 
           // Stage 3: Fatou (Onboarding)
           setTimeout(() => {
             setStatuses(prev => ({ ...prev, onboarding: 'running' }));
             updateAnim('onboarding', { thought: `📋 Onboarding ${batch.length} vendeurs...` });
-            setFeedItems(p => [{ time: now(), from: 'Fatou', to: 'Marc', msg: `📋 Questionnaire envoyé aux ${consented} consentements`, color: '#EA580C' }, ...p.slice(0, 7)]);
+            setFeedItems(p => [{ time: now(), from: 'Fatou', to: 'Farida', msg: `📋 Questionnaire envoyé aux ${consented} consentements`, color: '#EA580C' }, ...p.slice(0, 7)]);
 
             setTimeout(() => {
               setStatuses(prev => ({ ...prev, onboarding: 'success' }));
@@ -395,11 +397,11 @@ export default function AgentHubPage() {
                           updateAnim('product_publishing', { thought: '✅ Produits publiés !' });
                           setTimeout(() => updateAnim('product_publishing', { thought: null }), 1500);
 
-                          // Stage 7: Yann (WhatsApp followup)
+                          // Stage 7: Oceane (WhatsApp followup)
                           setTimeout(() => {
                             setStatuses(prev => ({ ...prev, whatsapp_followup: 'running' }));
                             updateAnim('whatsapp_followup', { thought: '📱 Validation finale...' });
-                            setFeedItems(p => [{ time: now(), from: 'Yann', to: 'Awa', msg: `📱 Envoi lien boutique aux ${batch.length} vendeurs`, color: '#059669' }, ...p.slice(0, 7)]);
+                            setFeedItems(p => [{ time: now(), from: 'Oceane', to: 'Awa', msg: `📱 Envoi lien boutique aux ${batch.length} vendeurs`, color: '#059669' }, ...p.slice(0, 7)]);
 
                             setTimeout(() => {
                               const validated = Math.floor(batch.length * (0.7 + Math.random() * 0.2));
@@ -411,7 +413,7 @@ export default function AgentHubPage() {
                               setTimeout(() => {
                                 setStatuses(prev => ({ ...prev, marketing: 'running' }));
                                 updateAnim('marketing', { thought: '📊 Optimisation campagne...' });
-                                setFeedItems(p => [{ time: now(), from: 'Eve', to: 'Yann', msg: `📊 Analyse conversion lot ${stageIdx+1}`, color: '#CA8A04' }, ...p.slice(0, 7)]);
+                                setFeedItems(p => [{ time: now(), from: 'Eve', to: 'Oceane', msg: `📊 Analyse conversion lot ${stageIdx+1}`, color: '#CA8A04' }, ...p.slice(0, 7)]);
 
                                 setTimeout(() => {
                                   setStatuses(prev => ({ ...prev, marketing: 'success' }));
@@ -419,7 +421,7 @@ export default function AgentHubPage() {
                                   setKpis(p => ({ ...p, conv: convRate }));
                                   updateAnim('marketing', { thought: `📈 Taux: ${convRate}% !` });
                                   setTimeout(() => updateAnim('marketing', { thought: null }), 1500);
-                                  setFeedItems(p => [{ time: now(), from: 'Eve', to: 'DeerFlow', msg: `📊 Lot ${stageIdx+1} terminé — taux conversion ${convRate}%`, color: '#CA8A04' }, ...p.slice(0, 7)]);
+                                  setFeedItems(p => [{ time: now(), from: 'Eve', to: 'Kwelly', msg: `📊 Lot ${stageIdx+1} terminé — taux conversion ${convRate}%`, color: '#CA8A04' }, ...p.slice(0, 7)]);
 
                                   // Move to next batch
                                   setTimeout(() => runStage(stageIdx + 1), 800);
@@ -440,7 +442,7 @@ export default function AgentHubPage() {
     };
 
     // Start pipeline
-    setFeedItems(p => [{ time: now(), from: 'DeerFlow', to: 'Tous', msg: `🚀 Pipeline lancé — ${batches.length} lots à traiter`, color: '#3B82F6', urgent: true }, ...p.slice(0, 7)]);
+    setFeedItems(p => [{ time: now(), from: 'Kwelly', to: 'Tous', msg: `🚀 Pipeline lancé — ${batches.length} lots à traiter`, color: '#3B82F6', urgent: true }, ...p.slice(0, 7)]);
     setStatuses(prev => ({ ...prev, orchestrator: 'running' }));
     updateAnim('orchestrator', { thought: `🚀 Pipeline: ${total} contacts en ${batches.length} lots` });
     setTimeout(() => updateAnim('orchestrator', { thought: null }), 2000);
@@ -731,7 +733,7 @@ export default function AgentHubPage() {
                   ODAControl · Agents
                 </h2>
                 <p style={{ fontSize: 11, color: '#999', margin: '2px 0 0' }}>
-                  DeerFlow 2.0 · Douala, CM · {activeCount} actifs
+                  Kwelly 2.0 · Douala, CM · {activeCount} actifs
                   {sleepingCount > 0 && <span style={{ color: '#6B7280' }}> · {sleepingCount} endormis</span>}
                   {importedContacts.length > 0 && <span style={{ color: '#8B5CF6' }}> · 📂 {importedContacts.length} contacts (Mode Secondaire)</span>}
                 </p>
@@ -751,13 +753,13 @@ export default function AgentHubPage() {
                   </div>
                 ))}
                 <div style={{ width: 1, height: 30, background: '#e5e7eb', margin: '0 4px' }}/>
-                <button onClick={handleToggleAll} title={allOff ? 'Activer tous les agents' : 'Éteindre tous les agents'}
+                {isAdmin && (<button onClick={handleToggleAll} title={allOff ? 'Activer tous les agents' : 'Éteindre tous les agents'}
                   style={{ padding: '8px 14px', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit',
                     background: allOff ? '#10b981' : '#ef4444', color: 'white', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .2s' }}>
                   <span>{allOff ? '🟢' : '🔴'}</span>
                   {allOff ? 'Tout activer' : 'Tout éteindre'}
-                </button>
-                <button onClick={() => {
+                </button>)}
+                {isAdmin && (<button onClick={() => {
                   if (!modeSecondaire) {
                     setModeSecondaire(true);
                     modeSecondaireRef.current = true;
@@ -784,7 +786,7 @@ export default function AgentHubPage() {
                     background: modeSecondaire ? '#8B5CF6' : '#f3f0ff', color: modeSecondaire ? 'white' : '#8B5CF6', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .2s' }}>
                   <span>📂</span>
                   {modeSecondaire ? 'Mode Secondaire · Actif' : 'Mode Secondaire'}
-                </button>
+                </button>)}
               </div>
             </div>
           </div>
@@ -835,7 +837,7 @@ export default function AgentHubPage() {
                     </div>
                   )}
                   <div style={{ textAlign: 'right', marginTop: 2 }}>
-                    <button onClick={() => setImportedContacts([])} style={{ border: 'none', background: 'none', color: '#ccc', cursor: 'pointer', fontSize: 9, fontWeight: 500 }}>Tout effacer</button>
+                    {isAdmin && (<button onClick={() => setImportedContacts([])} style={{ border: 'none', background: 'none', color: '#ccc', cursor: 'pointer', fontSize: 9, fontWeight: 500 }}>Tout effacer</button>)}
                   </div>
                 </div>
               )}
@@ -888,7 +890,7 @@ export default function AgentHubPage() {
                   </div>
                   {sleep && missing.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 6, width: '100%' }}>
-                      {missing.map((m, i) => (
+                      {isAdmin && missing.map((m, i) => (
                         <div key={i} onClick={(e) => { e.stopPropagation(); handleProvideConfig(a.key, m.type); }}
                           style={{ fontSize: 9, padding: '3px 8px', borderRadius: 20, background: '#6B728010', color: '#6B7280', cursor: 'pointer',
                             textAlign: 'center', border: '.5px dashed #6B728040', fontWeight: 500 }}>
@@ -997,10 +999,10 @@ export default function AgentHubPage() {
                         <span style={{ fontWeight: 600 }}>{m.type === 'api' ? '🔑 API' : m.type === 'db' ? '🗄️ Base de données' : '🔧 Outils'}</span>
                         <span style={{ color: '#A16207', marginLeft: 4 }}>— {m.label}</span>
                       </div>
-                      <button onClick={() => handleProvideConfig(selAgent.key, m.type)}
+                      {isAdmin && (<button onClick={() => handleProvideConfig(selAgent.key, m.type)}
                         style={{ padding: '4px 12px', border: 'none', borderRadius: 8, background: '#D97706', color: 'white', cursor: 'pointer', fontSize: 10, fontWeight: 600, fontFamily: 'inherit' }}>
                         Configurer
-                      </button>
+                      </button>)}
                     </div>
                   ))}
                   <p style={{ fontSize: 10, color: '#A16207', marginTop: 6 }}>Configurez les éléments manquants pour réveiller cet agent.</p>
@@ -1031,7 +1033,7 @@ export default function AgentHubPage() {
               </div>
 
               {/* Actions */}
-              <button onClick={() => {
+              {isAdmin && (<button onClick={() => {
                 const isOff = disabled[selAgent.key];
                 setDisabled(prev => ({ ...prev, [selAgent.key]: !isOff }));
                 if (!isOff) { updateAnim(selAgent.key, { thought: '*se rendort*' }); setTimeout(() => updateAnim(selAgent.key, { thought: null }), 1500); }
@@ -1044,7 +1046,7 @@ export default function AgentHubPage() {
                 background: disabled[selAgent.key] ? '#10b981' : '#ef4444', color: 'white', transition: 'all .2s',
               }} onMouseOver={e => e.currentTarget.style.opacity = '.85'} onMouseOut={e => e.currentTarget.style.opacity = '1'}>
                 {disabled[selAgent.key] ? '🟢 Activer cet agent' : '⏸️ Désactiver cet agent'}
-              </button>
+              </button>)}
             </div>
           ) : (
             <div style={{ background: '#fff', borderRadius: 20, padding: 32, border: '.5px solid #e5e7eb', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
@@ -1083,10 +1085,10 @@ export default function AgentHubPage() {
                   style={{ width: '100%', padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 12, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
                   autoFocus/>
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  <button type="submit"
+                  {isAdmin && (<button type="submit"
                     style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 10, background: '#8B5CF6', color: 'white', fontWeight: 700, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer' }}>
                     ✅ Confirmer & Réveiller
-                  </button>
+                  </button>)}
                   <button type="button" onClick={() => setConfigModal(null)}
                     style={{ padding: '10px 18px', border: '.5px solid #e5e7eb', borderRadius: 10, background: 'white', cursor: 'pointer', fontSize: 12, color: '#666', fontFamily: 'inherit' }}>
                     Annuler

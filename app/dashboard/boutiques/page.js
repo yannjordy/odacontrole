@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,6 +12,7 @@ const STATUS_COLORS = { pending:'#FF9500', active:'#34C759', suspended:'#FF3B30'
 const STATUS_LABELS = { pending:'En attente', active:'Active', suspended:'Suspendue', rejected:'Rejetée', inactive:'Inactive' };
 
 export default function ShopsPage() {
+  const { isAdmin } = useRole();
   const [shops, setShops] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
@@ -82,9 +84,9 @@ export default function ShopsPage() {
                   <td><span className="adpill" style={{background: STATUS_COLORS[shop.status] + '18', color: STATUS_COLORS[shop.status]}}>{STATUS_LABELS[shop.status] || shop.status}</span></td>
                   <td style={{fontSize:'.75rem',color:'#8e8e93'}}>{new Date(shop.created_at).toLocaleDateString('fr-FR')}</td>
                   <td>
-                    <select className="adpbtn" style={{padding:'4px 8px',fontSize:'.7rem'}} value={shop.status} onChange={e => updateStatus(shop.id, e.target.value)}>
+                    {isAdmin && (<select className="adpbtn" style={{padding:'4px 8px',fontSize:'.7rem'}} value={shop.status} onChange={e => updateStatus(shop.id, e.target.value)}>
                       {Object.keys(STATUS_LABELS).map(st => <option key={st} value={st}>{STATUS_LABELS[st]}</option>)}
-                    </select>
+                    </select>)}
                   </td>
                 </tr>
               ))}

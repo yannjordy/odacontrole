@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -57,6 +58,7 @@ function truncate(str, len = 40) {
 }
 
 export default function ChatPage() {
+  const { isAdmin } = useRole();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -238,7 +240,7 @@ export default function ChatPage() {
       }}>
         <div style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#555' }}>📋 Historique</span>
-          <button onClick={() => {
+          {isAdmin && (<button onClick={() => {
             const id = generateId();
             const welcome = { role: 'assistant', content: '👋 Bonjour ! Je suis **DeerFlow**…', time: new Date().toISOString() };
             setConversations(prev => {
@@ -250,7 +252,7 @@ export default function ChatPage() {
             setCurrentConvId(id);
             setMessages([welcome]);
             setShowHistory(false);
-          }} style={{ border: 'none', background: '#3B82F6', color: 'white', borderRadius: 8, padding: '4px 10px', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Nouveau</button>
+          }} style={{ border: 'none', background: '#3B82F6', color: 'white', borderRadius: 8, padding: '4px 10px', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Nouveau</button>)}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
           {conversations.length === 0 ? (
@@ -266,7 +268,7 @@ export default function ChatPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
                 <span style={{ fontSize: 9, color: '#999' }}>{conv.updated_at ? new Date(conv.updated_at).toLocaleDateString('fr-FR') : ''}</span>
-                <button onClick={(e) => deleteConversation(conv.id, e)} style={{ border: 'none', background: 'none', color: '#ccc', cursor: 'pointer', fontSize: 10, padding: 0, lineHeight: 1 }}>✕</button>
+                {isAdmin && (<button onClick={(e) => deleteConversation(conv.id, e)} style={{ border: 'none', background: 'none', color: '#ccc', cursor: 'pointer', fontSize: 10, padding: 0, lineHeight: 1 }}>✕</button>)}
               </div>
             </div>
           ))}
@@ -385,7 +387,7 @@ export default function ChatPage() {
 
         {/* Input */}
         <div style={{ padding: '10px 14px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, background: 'white', alignItems: 'center' }}>
-          <button onClick={() => fileRef.current?.click()} title="Joindre un fichier (CSV, XLSX, DOCX, PDF)"
+          {isAdmin && (<button onClick={() => fileRef.current?.click()} title="Joindre un fichier (CSV, XLSX, DOCX, PDF)"
             style={{
               border: '1.5px dashed #d0d0d0', background: 'white', borderRadius: 10, width: 36, height: 36,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -394,15 +396,15 @@ export default function ChatPage() {
             onMouseOver={e => { e.currentTarget.style.borderColor = '#8B5CF6'; e.currentTarget.style.background = '#F5F3FF'; }}
             onMouseOut={e => { e.currentTarget.style.borderColor = '#d0d0d0'; e.currentTarget.style.background = 'white'; }}>
             📎
-          </button>
+          </button>)}
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.docx,.pdf,.txt,.json" onChange={handleFileUpload} style={{ display: 'none' }} />
           <input style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e0e0e0', fontSize: '.82rem', outline: 'none', fontFamily: 'inherit' }}
             placeholder="Parlez à DeerFlow..." value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
-          <button className="adbtn adbtn-primary" onClick={send} disabled={sending || (!input.trim() && !uploadedFile)}
+          {isAdmin && (<button className="adbtn adbtn-primary" onClick={send} disabled={sending || (!input.trim() && !uploadedFile)}
             style={{ padding: '9px 16px', borderRadius: 10, fontSize: '.82rem', flexShrink: 0 }}>
             {sending ? '...' : 'Envoyer'}
-          </button>
+          </button>)}
         </div>
       </div>
     </div>
