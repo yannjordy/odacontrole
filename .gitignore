@@ -52,6 +52,9 @@ agent.html
 # vercel
 .vercel
 
-# typescript
+ # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# whatsapp sessions
+/sessions/
