@@ -21,7 +21,7 @@ let lastError = null;
 function initClient() {
   client = new Client({
     authStrategy: new LocalAuth({ dataPath: './sessions' }),
-    puppeteer: { headless: true, executablePath: '/snap/bin/chromium', args: ['--no-sandbox', '--disable-setuid-sandbox'] },
+    puppeteer: { headless: true, executablePath: '/usr/bin/google-chrome-stable', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'] },
   });
 
   client.on('qr', (qr) => {
