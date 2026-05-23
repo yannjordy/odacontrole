@@ -204,14 +204,23 @@ export default function WhatsAppPage() {
           </div>
         )}
 
-        {waStatus === 'disconnected' && (
+        {waStatus !== 'connected' && waStatus !== 'scan_qr' && (
           <div style={{ marginTop: 20, textAlign: 'center' }}>
             <div style={{ fontSize: '.9rem', fontWeight: 600, color: '#555', marginBottom: 12 }}>
-              WhatsApp déconnecté. Générez un nouveau QR pour reconnecter.
+              {waStatus === 'offline'
+                ? 'Serveur WhatsApp hors ligne. Lancez npm run start:whatsapp dans votre terminal.'
+                : waStatus === 'auth_failure'
+                  ? 'Échec d\'authentification. Générez un nouveau QR.'
+                  : waStatus === 'checking'
+                    ? 'Vérification du serveur...'
+                    : 'WhatsApp déconnecté. Générez un nouveau QR pour reconnecter.'
+              }
             </div>
-            <button className="adbtn adbtn-primary" onClick={regenerateQr} disabled={generatingQr}>
-              {generatingQr ? '⏳ Génération...' : '📱 Générer le QR code'}
-            </button>
+            {waStatus !== 'checking' && waStatus !== 'offline' && (
+              <button className="adbtn adbtn-primary" onClick={regenerateQr} disabled={generatingQr}>
+                {generatingQr ? '⏳ Génération...' : '📱 Générer le QR code'}
+              </button>
+            )}
           </div>
         )}
 
