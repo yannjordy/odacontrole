@@ -42,6 +42,15 @@ export async function POST(req) {
       return NextResponse.json(data, { status: res.status });
     }
 
+    if (action === 'logout') {
+      const res = await fetch(`${WHATSAPP_SERVER}/logout`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await res.json();
+      return NextResponse.json(data);
+    }
+
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

@@ -27,9 +27,9 @@ export default function WhatsAppPage() {
   const [stats, setStats] = useState({ total: 0, sent: 0, delivered: 0, replied: 0, failed: 0 });
   const [agentStats, setAgentStats] = useState({});
 
-  // WhatsApp connection
   const [waStatus, setWaStatus] = useState('checking');
   const [waQr, setWaQr] = useState(null);
+  const [generatingQr, setGeneratingQr] = useState(false);
   const [sendForm, setSendForm] = useState({ number: '', message: '' });
   const pollRef = useRef(null);
 
@@ -45,16 +45,32 @@ export default function WhatsAppPage() {
       const res = await fetch('/api/whatsapp?endpoint=status');
       const data = await res.json();
       setWaStatus(data.status || 'offline');
-      if (data.status === 'scan_qr') {
+      if (data.qr) setWaQr(data.qr);
+      else if (data.status === 'scan_qr') {
         const qrRes = await fetch('/api/whatsapp?endpoint=qr');
         const qrData = await qrRes.json();
         if (qrData.qr) setWaQr(qrData.qr);
-      } else {
-        setWaQr(null);
       }
     } catch {
       setWaStatus('offline');
     }
+  }
+
+  async function regenerateQr() {
+    setGeneratingQr(true);
+    setWaQr(null);
+    try {
+      await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' }),
+      });
+      toast('Nouveau QR code en cours de génération...');
+      setTimeout(fetchWhatsAppStatus, 3000);
+    } catch (err) {
+      toast('Erreur: ' + err.message, 'error');
+    }
+    setGeneratingQr(false);
   }
 
   async function fetchData() {
@@ -185,6 +201,26 @@ export default function WhatsAppPage() {
             <div style={{ marginTop: 12, fontSize: '.78rem', color: '#8e8e93' }}>
               Ouvrez WhatsApp {'>'} Menu {'>'} Appareils liés {'>'} Scanner le code
             </div>
+          </div>
+        )}
+
+        {waStatus === 'disconnected' && (
+          <div style={{ marginTop: 20, textAlign: 'center' }}>
+            <div style={{ fontSize: '.9rem', fontWeight: 600, color: '#555', marginBottom: 12 }}>
+              WhatsApp déconnecté. Générez un nouveau QR pour reconnecter.
+            </div>
+            <button className="adbtn adbtn-primary" onClick={regenerateQr} disabled={generatingQr}>
+              {generatingQr ? '⏳ Génération...' : '📱 Générer le QR code'}
+            </button>
+          </div>
+        )}
+
+        {waStatus === 'connected' && (
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+            <button className="adbtn adbtn-ghost" onClick={regenerateQr} disabled={generatingQr}
+              style={{ color: '#FF3B30' }}>
+              🔄 Changer d'appareil (générer un nouveau QR)
+            </button>
           </div>
         )}
       </div>

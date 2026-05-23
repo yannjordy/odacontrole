@@ -126,22 +126,39 @@ app.post('/send-message', async (req, res) => {
 });
 
 // GET /status
-app.get('/status', (req, res) => {
-  res.json({
-    connected: connectionStatus === 'connected',
-    status: connectionStatus,
-    hasQR: !!qrCodeData,
-    lastError: lastError,
+  app.get('/status', (req, res) => {
+    res.json({
+      connected: connectionStatus === 'connected',
+      status: connectionStatus,
+      hasQR: !!qrCodeData,
+      qr: qrCodeData,
+      lastError: lastError,
+    });
   });
-});
 
-// GET /qr (returns QR code as base64 for dashboard display)
-app.get('/qr', (req, res) => {
-  if (!qrCodeData) {
-    return res.json({ qr: null, status: connectionStatus });
-  }
-  res.json({ qr: qrCodeData, status: connectionStatus });
-});
+  // GET /qr (returns QR code)
+  app.get('/qr', (req, res) => {
+    if (!qrCodeData) {
+      return res.json({ qr: null, status: connectionStatus });
+    }
+    res.json({ qr: qrCodeData, status: connectionStatus });
+  });
+
+  // POST /logout — force logout and generate new QR
+  app.post('/logout', async (req, res) => {
+    try {
+      qrCodeData = null;
+      connectionStatus = 'disconnected';
+      if (client) {
+        try { await client.destroy(); } catch {}
+      }
+      console.log('🔄 Generating new QR code...');
+      initClient();
+      res.json({ success: true, message: 'Nouveau QR code généré' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
 // Start server
 app.listen(PORT, () => {
