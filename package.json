@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "start:whatsapp": "node patch-wwebjs.js && node whatsapp-server.js",
-    "postinstall": "node patch-wwebjs.js"
+    "postinstall": "node patch-wwebjs.js",
     "lint": "eslint"
   },
   "dependencies": {
