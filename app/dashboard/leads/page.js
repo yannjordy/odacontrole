@@ -203,13 +203,13 @@ export default function LeadsPage() {
 
       {/* Add Lead Modal */}
       {modal && modal.type === 'add' && (
-        <AddLeadModal onClose={() => setModal(null)} onCreated={fetchLeads} supabase={supabase} STATUS_FLOW={STATUS_FLOW} STATUS_LABELS={STATUS_LABELS}/>
+        <AddLeadModal onClose={() => setModal(null)} onCreated={fetchLeads} supabase={supabase} isAdmin={isAdmin} STATUS_FLOW={STATUS_FLOW} STATUS_LABELS={STATUS_LABELS}/>
       )}
     </div>
   );
 }
 
-function AddLeadModal({ onClose, onCreated, supabase }) {
+function AddLeadModal({ onClose, onCreated, supabase, isAdmin }) {
   const [form, setForm] = useState({ full_name: '', phone: '', email: '', city: '', business_name: '', business_type: '', notes: '' });
   const [saving, setSaving] = useState(false);
   const set = k => e => setForm(f => ({...f, [k]: e.target.value}));
