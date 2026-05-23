@@ -45,11 +45,16 @@ export default function WhatsAppPage() {
       const res = await fetch('/api/whatsapp?endpoint=status');
       const data = await res.json();
       setWaStatus(data.status || 'offline');
-      if (data.qr) setWaQr(data.qr);
-      else if (data.status === 'scan_qr') {
+      if (data.qr) {
+        setWaQr(data.qr);
+        setGeneratingQr(false);
+      } else if (data.status === 'scan_qr') {
         const qrRes = await fetch('/api/whatsapp?endpoint=qr');
         const qrData = await qrRes.json();
-        if (qrData.qr) setWaQr(qrData.qr);
+        if (qrData.qr) {
+          setWaQr(qrData.qr);
+          setGeneratingQr(false);
+        }
       }
     } catch {
       setWaStatus('offline');
@@ -66,11 +71,11 @@ export default function WhatsAppPage() {
         body: JSON.stringify({ action: 'logout' }),
       });
       toast('Nouveau QR code en cours de génération...');
-      setTimeout(fetchWhatsAppStatus, 3000);
+      setTimeout(() => setGeneratingQr(false), 60000);
     } catch (err) {
       toast('Erreur: ' + err.message, 'error');
+      setGeneratingQr(false);
     }
-    setGeneratingQr(false);
   }
 
   async function fetchData() {

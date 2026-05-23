@@ -2,6 +2,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
 const cors = require('cors');
 const qrcode = require('qrcode-terminal');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -152,7 +153,13 @@ app.post('/send-message', async (req, res) => {
       if (client) {
         try { await client.destroy(); } catch {}
       }
-      console.log('🔄 Generating new QR code...');
+      // Supprimer la session existante pour forcer un nouveau QR
+      const sessionPath = './sessions';
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+        console.log('🧹 Session supprimée');
+      }
+      console.log('🔄 Génération d\'un nouveau QR code...');
       initClient();
       res.json({ success: true, message: 'Nouveau QR code généré' });
     } catch (err) {
