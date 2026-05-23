@@ -12,15 +12,20 @@ export async function GET(req) {
     const admin = getAdminClient();
 
     if (action === 'stats') {
-      const [produits, services, usersRes, commandes, signalements, boosts, abonnements] = await Promise.all([
+      const [produits, services, commandes, signalements, boosts, abonnements] = await Promise.all([
         admin.from('produits').select('id,statut'),
         admin.from('services').select('id,statut'),
-        admin.rpc('get_users_count'),
         admin.from('commandes').select('id,montant_total,statut,created_at'),
         admin.from('signalements').select('id,statut'),
         admin.from('boosts').select('id,total_a_payer,statut'),
         admin.from('abonnements').select('id,plan,statut'),
       ]);
+
+      const { data: { users: allUsers } } = await admin.auth.admin.listUsers({ perPage: 10000 });
+      const totalUsers = allUsers?.length || 0;
+      const newUsers30d = allUsers?.filter(u =>
+        new Date(u.created_at) > new Date(Date.now() - 30*86400000)
+      ).length || 0;
 
       const { data: caAll } = await admin.from('commandes').select('montant_total');
       const { data: caMois } = await admin.from('commandes').select('montant_total')
@@ -36,14 +41,8 @@ export async function GET(req) {
       const abosActifs = abonnements.data?.filter(a => a.statut === 'actif').length||0;
       const boostsActifs = boosts.data?.filter(b => b.statut === 'actif').length||0;
 
-      const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 10000 });
-      const allUsers = usersList?.users || [];
-      const newUsers30d = allUsers.filter(u =>
-        new Date(u.created_at) > new Date(Date.now() - 30*86400000)
-      ).length;
-
       return NextResponse.json({
-        users: usersRes.data || 0,
+        users: totalUsers,
         newUsers30d,
         abonnementsActifs: abosActifs,
         revenuAbonnementsMois: 0,
