@@ -19,10 +19,37 @@ let connectionStatus = 'disconnected';
 let lastError = null;
 
 // Create and configure WhatsApp client
-function initClient() {
+function initClient(retry = 0) {
+  try { require('child_process').execSync('pkill -f "chrome.*sessions" 2>/dev/null || true'); } catch {}
+  
+  const useDisplay = process.env.DISPLAY && retry === 0;
+  
   client = new Client({
     authStrategy: new LocalAuth({ dataPath: './sessions' }),
-    puppeteer: { headless: true, executablePath: '/usr/bin/google-chrome-stable', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'] },
+    puppeteer: {
+      headless: useDisplay ? false : 'shell',
+      executablePath: '/usr/bin/google-chrome-stable',
+      env: useDisplay ? { DISPLAY: process.env.DISPLAY, HOME: process.env.HOME, XAUTHORITY: process.env.XAUTHORITY } : undefined,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-features=Translate,IsolateOrigins,site-per-process',
+        '--disable-background-networking',
+        '--disable-sync',
+        '--window-size=1920,1080',
+        '--disable-accelerated-2d-canvas',
+        '--disable-blink-features=AutomationControlled',
+        '--no-default-browser-check',
+        '--no-first-run',
+        '--ozone-platform-hint=auto',
+      ],
+    },
+    webVersionCache: { type: 'none' },
+    qrMaxRetries: 10,
+    takeoverOnConflict: true,
+    takeoverTimeoutMs: 60000,
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
   });
 
   client.on('qr', (qr) => {
@@ -40,13 +67,20 @@ function initClient() {
     sendTestMessage();
   });
 
+  let reconnectAttempts = 0;
   client.on('disconnected', (reason) => {
     connectionStatus = 'disconnected';
+    lastError = `Disconnected: ${reason}`;
     console.log('❌ WhatsApp disconnected:', reason);
+    if (reason === 'LOGOUT') return;
+    const delay = Math.min(5000 * Math.pow(2, reconnectAttempts), 60000);
+    reconnectAttempts++;
+    console.log(`🔄 Reconnecting in ${delay/1000}s (attempt ${reconnectAttempts})...`);
     setTimeout(() => {
-      console.log('🔄 Reconnecting...');
-      client.initialize();
-    }, 5000);
+      client.initialize().catch((err) => {
+        console.error('⚠️ Reconnect error:', err.message?.substring(0, 80));
+      });
+    }, delay);
   });
 
   client.on('auth_failure', (msg) => {
@@ -68,7 +102,13 @@ function initClient() {
     console.log(`✅ Message sent to ${msg.to}: ${msg.body?.substring(0, 50)}`);
   });
 
-  client.initialize();
+  // Initialisation avec capture d'erreur pour éviter le crash
+  client.initialize().catch((err) => {
+    console.error('⚠️ WhatsApp init error (non bloquant):', err.message.substring(0, 80));
+    if (connectionStatus === 'disconnected' || connectionStatus === 'checking') {
+      connectionStatus = 'disconnected';
+    }
+  });
 }
 
 // Save message to Supabase
@@ -171,4 +211,16 @@ app.post('/send-message', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🤖 ODA WhatsApp Server running on http://localhost:${PORT}`);
   initClient();
+});
+
+// Handle uncaught exceptions to keep server alive
+process.on('uncaughtException', (err) => {
+  console.error('💥 Uncaught exception:', err.message);
+  connectionStatus = 'disconnected';
+  lastError = err.message;
+});
+process.on('unhandledRejection', (err) => {
+  console.error('💥 Unhandled rejection:', err.message);
+  connectionStatus = 'disconnected';
+  lastError = err.message;
 });
