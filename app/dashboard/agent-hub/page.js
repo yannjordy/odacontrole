@@ -330,32 +330,34 @@ export default function AgentHubPage() {
       Object.keys(prev).forEach(k => { next[k] = 'running'; });
       return next;
     });
-    AGENTS.forEach(a => updateAnim(a.key, { thought: '🚀 Mode Travail Réel' }));
+    AGENTS.forEach(a => updateAnim(a.key, { thought: '🚀 Pipeline réel...' }));
     setTimeout(() => AGENTS.forEach(a => updateAnim(a.key, { thought: null })), 2000);
     setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-      from: 'Système', to: 'Tous', msg: '🚀 Mode Travail Réel activé — Campagne en cours...', color: '#22C55E', urgent: true }, ...p.slice(0, 7)]);
+      from: 'Système', to: 'Tous', msg: '🚀 Pipeline réel lancé — acquisition complète en cours...', color: '#22C55E', urgent: true }, ...p.slice(0, 7)]);
     try {
-      const res = await fetch('/api/agents/campaign', {
+      const res = await fetch('/api/agents/pipeline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'contact', batchSize: 20 }),
+        body: JSON.stringify({ mode: 'pipeline', batchSize: 5 }),
       });
       const data = await res.json();
       if (data.success) {
+        const totalSteps = data.results?.reduce((s, r) => s + (r.steps?.length || 0), 0) || 0;
+        const successSteps = data.results?.reduce((s, r) => s + (r.steps?.filter(st => st.status === 'validated' || st.status === 'sent' || st.status === 'created' || st.status === 'oui' || st.status === 'completed')?.length || 0), 0) || 0;
         setFeedItems(p => [{
           time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
           from: 'Système', to: 'Tous',
-          msg: `📬 ${data.sent} messages envoyés / ${data.failed} échec(s) sur ${data.processed} leads`,
-          color: data.failed > 0 ? '#F59E0B' : '#22C55E', urgent: true
+          msg: `✅ Pipeline terminé — ${data.processed} leads · ${successSteps}/${totalSteps} étapes réussies`,
+          color: '#22C55E', urgent: true
         }, ...p.slice(0, 7)]);
-        writeLog({ action: 'campaign_contact', severity: 'info', details: data });
+        writeLog({ action: 'pipeline_reel', severity: 'info', details: data });
       } else {
         setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-          from: 'Système', to: 'Tous', msg: `⚠️ Erreur campagne: ${data.error || data.message || 'Inconnue'}`, color: '#ef4444', urgent: true }, ...p.slice(0, 7)]);
+          from: 'Système', to: 'Tous', msg: `⚠️ Pipeline: ${data.error || data.message || 'Erreur'}`, color: '#ef4444', urgent: true }, ...p.slice(0, 7)]);
       }
     } catch (err) {
       setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-        from: 'Système', to: 'Tous', msg: `❌ Erreur: ${err.message}`, color: '#ef4444', urgent: true }, ...p.slice(0, 7)]);
+        from: 'Système', to: 'Tous', msg: `❌ Erreur pipeline: ${err.message}`, color: '#ef4444', urgent: true }, ...p.slice(0, 7)]);
     }
   };
 

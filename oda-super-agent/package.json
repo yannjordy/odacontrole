@@ -1,0 +1,35 @@
+{
+  "name": "oda-super-agent",
+  "version": "1.0.0",
+  "description": "Système multi-agents pour l'acquisition automatisée de vendeurs ODA Marketplace",
+  "main": "deerflow/orchestrator.js",
+  "scripts": {
+    "start": "node deerflow/orchestrator.js",
+    "start:research": "node agents/research/agent.js",
+    "start:contact": "node agents/contact/agent.js",
+    "start:onboarding": "node agents/onboarding/agent.js",
+    "start:account": "node agents/account_creation/agent.js",
+    "start:publish": "node agents/product_publishing/agent.js",
+    "start:followup": "node agents/whatsapp_followup/agent.js",
+    "start:marketing": "node agents/marketing/agent.js",
+    "dev": "node --watch deerflow/orchestrator.js",
+    "test": "node --experimental-vm-modules tests/run.js",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "logs": "tail -f logs/oda-super-agent.log"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.0",
+    "node-fetch": "^2.7.0",
+    "winston": "^3.11.0",
+    "uuid": "^9.0.0",
+    "pg": "^8.12.0",
+    "ioredis": "^5.4.0",
+    "playwright": "^1.42.0",
+    "openai": "^4.40.0"
+  },
+  "devDependencies": {},
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,74 @@
+version: '3.8'
+services:
+  orchestrator:
+    build: .
+    container_name: oda-orchestrator
+    command: node index.js pipeline
+    env_file: .env
+    depends_on:
+      - redis
+    volumes:
+      - ./logs:/app/logs
+      - ./configs:/app/configs
+    restart: unless-stopped
+    networks:
+      - oda-network
+
+  research-agent:
+    build: .
+    container_name: oda-research
+    command: node index.js agent research
+    env_file: .env
+    depends_on:
+      - orchestrator
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - oda-network
+
+  contact-agent:
+    build: .
+    container_name: oda-contact
+    command: node index.js agent contact
+    env_file: .env
+    depends_on:
+      - orchestrator
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - oda-network
+
+  whatsapp-service:
+    build: .
+    container_name: oda-whatsapp
+    command: node services/whatsapp/server.js
+    env_file: .env
+    ports:
+      - "3001:3001"
+    depends_on:
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - oda-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: oda-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - oda-network
+
+volumes:
+  redis-data:
+
+networks:
+  oda-network:
+    driver: bridge

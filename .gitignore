@@ -47,7 +47,9 @@ Sans nom 1.docx
 agent.html
 
 # sub-projects
-/oda-super-agent/
+/oda-super-agent/node_modules/
+/oda-super-agent/logs/
+/oda-super-agent/.env
 
 # vercel
 .vercel
