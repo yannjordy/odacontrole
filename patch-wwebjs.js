@@ -7,8 +7,8 @@ let content = fs.readFileSync(clientPath, 'utf-8');
 
 let modified = false;
 
-// Patch waitUntil: 'load' → 'domcontentloaded' avec try-catch sur inject()
-const oldGoto = `await page.goto(WhatsWebURL, {
+// Patch page.goto with retry + inject with retry
+const oldGoto = `        await page.goto(WhatsWebURL, {
             waitUntil: 'load',
             timeout: 0,
             referer: 'https://whatsapp.com/',
@@ -16,22 +16,36 @@ const oldGoto = `await page.goto(WhatsWebURL, {
 
         await this.inject();`;
 
-const newGoto = `await page.goto(WhatsWebURL, {
-            waitUntil: 'domcontentloaded',
-            timeout: 120000,
-            referer: 'https://whatsapp.com/',
-        });
+const newGoto = `        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                await page.goto(WhatsWebURL, {
+                    waitUntil: 'load',
+                    timeout: 120000,
+                    referer: 'https://whatsapp.com/',
+                });
+                break;
+            } catch (gotoErr) {
+                console.log(\`[ODA] goto attempt \${attempt} failed:\`, gotoErr.message?.substring(0, 80));
+                if (attempt === 3) throw gotoErr;
+                await new Promise(r => setTimeout(r, 5000));
+            }
+        }
 
-        try {
-            await this.inject();
-        } catch (injectErr) {
-            console.log('[ODA] inject() failed (non-blocking):', injectErr.message?.substring(0, 100));
+        for (let injectAttempt = 1; injectAttempt <= 3; injectAttempt++) {
+            try {
+                await this.inject();
+                break;
+            } catch (injectErr) {
+                console.log(\`[ODA] inject attempt \${injectAttempt} failed:\`, injectErr.message?.substring(0, 80));
+                if (injectAttempt === 3) throw injectErr;
+                await new Promise(r => setTimeout(r, 3000));
+            }
         }`;
 
 if (content.includes(oldGoto)) {
   content = content.replace(oldGoto, newGoto);
   modified = true;
-  console.log('✓ Patched page.goto waitUntil → domcontentloaded');
+  console.log('✓ Patched page.goto + inject with retry (3 attempts each)');
 }
 
 // Patch framenavigated inject() with try-catch
