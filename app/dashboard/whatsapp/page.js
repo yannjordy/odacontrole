@@ -31,6 +31,11 @@ export default function WhatsAppPage() {
   const [waQr, setWaQr] = useState(null);
   const [generatingQr, setGeneratingQr] = useState(false);
   const [sendForm, setSendForm] = useState({ number: '', message: '' });
+  const [testNumber, setTestNumber] = useState('');
+  const [testAgent, setTestAgent] = useState('all');
+  const [testRunning, setTestRunning] = useState(false);
+  const [testLog, setTestLog] = useState([]);
+  const testStopRef = useRef(false);
   const pollRef = useRef(null);
 
   useEffect(() => {
@@ -76,6 +81,33 @@ export default function WhatsAppPage() {
       toast('Erreur: ' + err.message, 'error');
       setGeneratingQr(false);
     }
+  }
+
+  async function startTest() {
+    if (!testNumber.trim()) { toast('Entrez un numéro WhatsApp', 'error'); return; }
+    testStopRef.current = false;
+    setTestRunning(true);
+    setTestLog([]);
+    try {
+      const res = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'agent-test', number: testNumber, agent: testAgent }),
+      });
+      const data = await res.json();
+      if (data.log) setTestLog(data.log);
+      if (data.success) toast(`✅ Test terminé — ${data.log.length} messages envoyés`);
+      else toast('Erreur: ' + (data.error || 'inconnue'), 'error');
+    } catch (err) {
+      if (!testStopRef.current) toast('Erreur: ' + err.message, 'error');
+    }
+    setTestRunning(false);
+  }
+
+  function stopTest() {
+    testStopRef.current = true;
+    setTestRunning(false);
+    toast('⏹ Test arrêté');
   }
 
   async function fetchData() {
@@ -254,6 +286,94 @@ export default function WhatsAppPage() {
           <div className="adcl">Échoués</div>
           <div className="adcv" style={{ color: '#FF3B30' }}>{stats.failed}</div>
         </div>
+      </div>
+
+      {/* Agent Test Section */}
+      <div className="adsec" style={{ marginTop: 16 }}>
+        <h3 className="adst" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          🧪 Test Agents
+          {testRunning && <span style={{ fontSize: '.7rem', color: '#007AFF' }}>⏳ Simulation en cours...</span>}
+        </h3>
+        <p className="adsd">Simulez une campagne agent sur un numéro WhatsApp réel</p>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 12 }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label style={{ fontSize: '.75rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>
+              Numéro WhatsApp
+            </label>
+            <input
+              value={testNumber}
+              onChange={e => setTestNumber(e.target.value)}
+              placeholder="237650000000"
+              disabled={testRunning}
+              style={{
+                width: '100%', padding: '10px 14px', border: '2px solid #e5e5e5',
+                borderRadius: 10, fontSize: '.85rem', outline: 'none',
+              }}
+            />
+          </div>
+          <div style={{ minWidth: 150 }}>
+            <label style={{ fontSize: '.75rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>
+              Agent
+            </label>
+            <select
+              value={testAgent}
+              onChange={e => setTestAgent(e.target.value)}
+              disabled={testRunning}
+              style={{
+                width: '100%', padding: '10px 14px', border: '2px solid #e5e5e5',
+                borderRadius: 10, fontSize: '.85rem', outline: 'none', background: 'white',
+              }}
+            >
+              <option value="all">Tous les agents</option>
+              <option value="contact">Farida (Contact)</option>
+              <option value="followup">Oceane (Suivi)</option>
+              <option value="marketing">Eve (Marketing)</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+            {!testRunning ? (
+              <button onClick={startTest} className="adbtn adbtn-primary"
+                disabled={waStatus !== 'connected'}
+                style={{ background: waStatus !== 'connected' ? '#8e8e93' : '#25D366' }}>
+                🚀 Lancer le test
+              </button>
+            ) : (
+              <button onClick={stopTest} className="adbtn" style={{
+                background: '#FF3B30', color: 'white', border: 'none',
+                padding: '10px 20px', borderRadius: 10, fontWeight: 600, cursor: 'pointer',
+              }}>
+                ⏹ Arrêter
+              </button>
+            )}
+          </div>
+        </div>
+        {testLog.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', marginBottom: 8 }}>
+              Journal d'envoi ({testLog.length} messages)
+            </div>
+            <div style={{
+              background: '#f8f8f8', borderRadius: 10, padding: 12, maxHeight: 200, overflowY: 'auto',
+              fontSize: '.78rem', fontFamily: 'monospace',
+            }}>
+              {testLog.map((entry, i) => (
+                <div key={i} style={{
+                  padding: '6px 0', borderBottom: i < testLog.length - 1 ? '1px solid #e5e5e5' : 'none',
+                  display: 'flex', gap: 8, alignItems: 'flex-start',
+                }}>
+                  <span>{entry.sent ? '✅' : '❌'}</span>
+                  <div>
+                    <span style={{ fontWeight: 600 }}>{entry.emoji} {entry.agent}</span>
+                    <span style={{ color: '#8e8e93' }}> — Étape {entry.step}</span>
+                    <span style={{ color: entry.sent ? '#34C759' : '#FF3B30', marginLeft: 8 }}>
+                      {entry.sent ? 'Envoyé' : 'Échec'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {loading ? <div className="adld"><div className="adsp" /></div> : (
