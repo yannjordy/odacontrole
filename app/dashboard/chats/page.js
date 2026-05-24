@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { useRole } from '../RoleContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -125,7 +124,6 @@ function formatDate(iso) {
 }
 
 export default function ChatPage() {
-  const { isAdmin } = useRole();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -367,7 +365,6 @@ En attendant, je reste DeerFlow 🧠 — orchestrateur ODAControl.
       <div className={`chat-sidebar${showHistory ? '' : ' collapsed'}`}>
         <div className="chat-sidebar-header">
           <span>📋 Historique</span>
-          {isAdmin && (
             <button onClick={() => {
               const id = generateId();
               const welcome = { role: 'assistant', content: '👋 Bonjour ! Je suis **DeerFlow**…', time: new Date().toISOString() };
@@ -381,7 +378,6 @@ En attendant, je reste DeerFlow 🧠 — orchestrateur ODAControl.
             }} style={{ border: 'none', background: '#3B82F6', color: 'white', borderRadius: 8, padding: '4px 10px', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               + Nouveau
             </button>
-          )}
         </div>
         <div className="chat-conv-list">
           {conversations.length === 0 ? (
@@ -392,7 +388,7 @@ En attendant, je reste DeerFlow 🧠 — orchestrateur ODAControl.
               <div className="chat-conv-title">{conv.title}</div>
               <div className="chat-conv-meta">
                 <span className="chat-conv-date">{formatDate(conv.updated_at)}</span>
-                {isAdmin && <button onClick={e => deleteConversation(conv.id, e)} className="chat-conv-del">✕</button>}
+                    {currentConvId === conv.id ? <button onClick={e => deleteConversation(conv.id, e)} className="chat-conv-del">✕</button> : null}
               </div>
             </div>
           ))}
@@ -466,21 +462,15 @@ En attendant, je reste DeerFlow 🧠 — orchestrateur ODAControl.
         )}
 
         <div className="chat-input-wrap">
-          {isAdmin && (
-            <>
-              <button onClick={() => fileRef.current?.click()} className="chat-attach-btn" title="Joindre PDF, TXT ou CSV">📎</button>
-              <input ref={fileRef} type="file" accept=".pdf,.txt,.csv" onChange={handleFileUpload} style={{ display: 'none' }}/>
-            </>
-          )}
+            <button onClick={() => fileRef.current?.click()} className="chat-attach-btn" title="Joindre PDF, TXT ou CSV">📎</button>
+            <input ref={fileRef} type="file" accept=".pdf,.txt,.csv" onChange={handleFileUpload} style={{ display: 'none' }}/>
           <input className="chat-input"
             placeholder="Parlez à DeerFlow..." value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}/>
-          {isAdmin && (
             <button onClick={send} disabled={sending || (!input.trim() && !fileContent)}
               className="adbtn adbtn-primary" style={{ padding: '9px 16px', borderRadius: 10, fontSize: '13px', flexShrink: 0 }}>
               {sending ? '...' : 'Envoyer'}
             </button>
-          )}
         </div>
       </div>
     </div>
