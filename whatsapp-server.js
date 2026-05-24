@@ -93,6 +93,7 @@ function initClient(retry = 0) {
     console.log(`📩 From: ${msg.from} | Message: ${msg.body}`);
     try {
       await saveMessageToDB(msg);
+      await traiterReponseLead(msg);
     } catch (err) {
       console.error('Failed to save incoming message:', err.message);
     }
@@ -118,13 +119,54 @@ async function saveMessageToDB(msg) {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
+  const phone = msg.from.replace('@c.us', '').replace('@s.whatsapp.net', '');
+  const { data: lead } = await supabase.from('leads').select('id,full_name,status').eq('phone', phone).maybeSingle();
   await supabase.from('whatsapp_messages').insert({
     direction: msg.fromMe ? 'outbound' : 'inbound',
     message_type: 'text',
     content: { body: msg.body },
     status: msg.fromMe ? 'sent' : 'received',
     wamid: msg.id._serialized,
+    lead_id: lead?.id || null,
   });
+}
+
+async function traiterReponseLead(msg) {
+  if (msg.fromMe) return;
+  const { createClient } = require('@supabase/supabase-js');
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  const phone = msg.from.replace('@c.us', '').replace('@s.whatsapp.net', '');
+  const { data: lead } = await supabase.from('leads').select('id,full_name,status').eq('phone', phone).maybeSingle();
+  if (!lead || lead.status === 'validated' || lead.status === 'rejected') return;
+
+  const body = msg.body.trim().toUpperCase();
+  const estOui = /^(OUI|OUE|OAI|YES|OK)\b/i.test(body) || /oui/i.test(body);
+  const estNon = /^(NON|NO|NOP|NAN)\b/i.test(body) || /non/i.test(body);
+
+  if (estOui) {
+    await supabase.from('leads').update({
+      status: lead.status === 'new' || lead.status === 'contacted' ? 'consented' : lead.status === 'products_published' ? 'validated' : lead.status,
+      consent_given: true,
+      consent_date: new Date().toISOString(),
+      last_contact_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', lead.id);
+    console.log(`✅ OUI reçu de ${lead.full_name || phone} — consentement enregistré`);
+    const prenom = lead.full_name?.split(' ')[0] || 'cher commerçant';
+    await client.sendMessage(msg.from, `Merci ${prenom} ! 🎉 Nous allons procéder à la création de votre boutique.`);
+  } else if (estNon) {
+    await supabase.from('leads').update({
+      status: 'rejected',
+      notes: `Refus via WhatsApp: ${msg.body}`,
+      last_contact_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', lead.id);
+    console.log(`❌ NON reçu de ${lead.full_name || phone}`);
+    await client.sendMessage(msg.from, `D'accord, merci pour votre réponse. Si vous changez d'avis, n'hésitez pas à nous contacter. 😊`);
+  }
 }
 
 // Send test message after connection

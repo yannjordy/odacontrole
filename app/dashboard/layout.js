@@ -248,6 +248,7 @@ const NAV = [
   { path: '/dashboard/leads', label: 'Pipeline', icon: 'pipeline' },
   { path: '/dashboard/boutiques', label: 'Boutiques', icon: 'shops' },
   { path: '/dashboard/whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
+  { path: '/dashboard/campaigns', label: 'Campagnes', icon: 'campaign' },
   { path: '/dashboard/chats', label: 'Chat', icon: 'chat' },
   { path: '/dashboard/distribution', label: 'Distribution', icon: 'distribution' },
   { path: '/dashboard/monitoring', label: 'Monitoring', icon: 'monitoring' },

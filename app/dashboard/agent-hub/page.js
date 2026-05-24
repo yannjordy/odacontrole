@@ -319,7 +319,7 @@ export default function AgentHubPage() {
       from: 'Système', to: 'Tous', msg: '🎯 Mode Simulation activé — Agents simulés', color: '#F59E0B', urgent: true }, ...p.slice(0, 7)]);
   };
 
-  const handleWorkAll = () => {
+  const handleWorkAll = async () => {
     setAgentMode('work');
     const all = {};
     AGENTS.forEach(a => { all[a.key] = false; });
@@ -333,7 +333,30 @@ export default function AgentHubPage() {
     AGENTS.forEach(a => updateAnim(a.key, { thought: '🚀 Mode Travail Réel' }));
     setTimeout(() => AGENTS.forEach(a => updateAnim(a.key, { thought: null })), 2000);
     setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-      from: 'Système', to: 'Tous', msg: '🚀 Mode Travail Réel activé — Agents opérationnels', color: '#22C55E', urgent: true }, ...p.slice(0, 7)]);
+      from: 'Système', to: 'Tous', msg: '🚀 Mode Travail Réel activé — Campagne en cours...', color: '#22C55E', urgent: true }, ...p.slice(0, 7)]);
+    try {
+      const res = await fetch('/api/agents/campaign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'contact', batchSize: 20 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFeedItems(p => [{
+          time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+          from: 'Système', to: 'Tous',
+          msg: `📬 ${data.sent} messages envoyés / ${data.failed} échec(s) sur ${data.processed} leads`,
+          color: data.failed > 0 ? '#F59E0B' : '#22C55E', urgent: true
+        }, ...p.slice(0, 7)]);
+        writeLog({ action: 'campaign_contact', severity: 'info', details: data });
+      } else {
+        setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+          from: 'Système', to: 'Tous', msg: `⚠️ Erreur campagne: ${data.error || data.message || 'Inconnue'}`, color: '#ef4444', urgent: true }, ...p.slice(0, 7)]);
+      }
+    } catch (err) {
+      setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+        from: 'Système', to: 'Tous', msg: `❌ Erreur: ${err.message}`, color: '#ef4444', urgent: true }, ...p.slice(0, 7)]);
+    }
   };
 
   const processAgentPipeline = useCallback((contacts) => {
