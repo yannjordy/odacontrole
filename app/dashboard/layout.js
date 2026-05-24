@@ -267,7 +267,7 @@ export default function DashboardLayout({ children }) {
   const [role, setRole] = useState(null);
   const [checking, setChecking] = useState(true);
   const [time, setTime] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarOpen = true;
 
   useEffect(() => {
     const s = document.createElement('style'); s.id = 'odal-css'; s.textContent = CSS;
@@ -334,9 +334,7 @@ export default function DashboardLayout({ children }) {
     <div className="oda-shell">
       <div className="oda-topbar">
         <div className="oda-logo">
-          <button className="oda-toggle-btn" onClick={() => setSidebarOpen(s => !s)} aria-label="Menu">
-            <SvgIcon name={sidebarOpen ? 'close' : 'menu'} size={18} color="currentColor"/>
-          </button>
+          <div style={{width:18}}></div>
           ODA<span>Control</span>
         </div>
         <div className="oda-pills">
@@ -356,7 +354,7 @@ export default function DashboardLayout({ children }) {
         <nav className={`oda-sidebar${sidebarOpen?' open':''}`}>
           {allowedNav.map(item => (
             <a key={item.path} href={item.path} className={`oda-nav-btn${pathname===item.path?' active':''}`}
-              onClick={e=>{e.preventDefault();router.push(item.path);if(window.innerWidth<768)setSidebarOpen(false)}} title={item.label}>
+              onClick={e=>{e.preventDefault();router.push(item.path)}} title={item.label}>
               <span className="icon-only"><SvgIcon name={item.icon} size={18} color="currentColor"/></span>
               <span className="nav-label">{item.label}</span>
             </a>
