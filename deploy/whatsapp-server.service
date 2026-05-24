@@ -1,0 +1,19 @@
+[Unit]
+Description=ODA WhatsApp Server
+After=network.target
+
+[Service]
+Type=simple
+User=jordy
+WorkingDirectory=/home/jordy/Documents/odacontrole
+ExecStart=/home/jordy/.nvm/versions/node/v24.13.1/bin/node /home/jordy/Documents/odacontrole/whatsapp-server.js
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/run/user/1000/.mutter-Xwaylandauth.U9UIP3
+StandardOutput=append:/home/jordy/Documents/odacontrole/logs/whatsapp-server.log
+StandardError=append:/home/jordy/Documents/odacontrole/logs/whatsapp-server.error.log
+
+[Install]
+WantedBy=multi-user.target
