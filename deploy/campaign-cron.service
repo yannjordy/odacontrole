@@ -1,0 +1,10 @@
+[Unit]
+Description=ODA Campaign - contact new leads via WhatsApp
+
+[Service]
+Type=oneshot
+User=jordy
+WorkingDirectory=/home/jordy/Documents/odacontrole
+ExecStart=/usr/bin/curl -s -X POST http://localhost:3000/api/agents/campaign -H 'Content-Type: application/json' -d '{"mode":"contact","batchSize":20}'
+StandardOutput=append:/home/jordy/Documents/odacontrole/logs/campaign-cron.log
+StandardError=append:/home/jordy/Documents/odacontrole/logs/campaign-cron.error.log
