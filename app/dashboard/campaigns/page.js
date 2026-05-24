@@ -8,62 +8,75 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const s = (k) => ({
-  page: { padding: '28px 36px', maxWidth: 1120, margin: '0 auto' },
-  header: { marginBottom: 28 },
-  title: { fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 },
-  subtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
-  actions: { display: 'flex', gap: 10, marginBottom: 28, flexWrap: 'wrap' },
-  btn: (bg, fg, disabled) => ({
-    padding: '10px 20px', border: 'none', borderRadius: 10,
-    background: disabled ? '#E5E7EB' : bg, color: disabled ? '#9CA3AF' : fg,
-    fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
-    fontSize: 13, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8,
-    transition: 'all .15s', boxShadow: disabled ? 'none' : '0 1px 3px rgba(0,0,0,.08)',
-  }),
-  btnOutline: (active) => ({
-    padding: '10px 20px', borderRadius: 10, cursor: 'pointer',
-    fontWeight: 600, fontSize: 13, fontFamily: 'inherit',
-    display: 'flex', alignItems: 'center', gap: 8, transition: 'all .15s',
-    border: active ? '1.5px solid #ef4444' : '1.5px solid #E5E7EB',
-    background: active ? '#FEF2F2' : '#fff',
-    color: active ? '#ef4444' : '#374151',
-  }),
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 28 },
-  card: {
-    background: '#fff', borderRadius: 14, border: '0.5px solid #E5E7EB',
-    padding: 20, position: 'relative', overflow: 'hidden',
-    transition: 'box-shadow .15s',
-  },
-  cardLabel: { fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: 10 },
-  cardValue: { fontSize: 30, fontWeight: 700, letterSpacing: '-0.03em' },
-  cardIcon: { position: 'absolute', top: 16, right: 16, opacity: 0.12, transform: 'scale(2)', transformOrigin: 'top right' },
-  section: {
-    background: '#fff', borderRadius: 14, border: '0.5px solid #E5E7EB', padding: 24,
-  },
-  sectionTitle: { fontSize: 15, fontWeight: 600, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8 },
-  msgRow: (inbound) => ({
-    display: 'flex', alignItems: 'center', gap: 12,
-    padding: '10px 14px',
-    background: inbound ? '#F0FDF4' : '#F9FAFB',
-    borderRadius: 10, fontSize: 12,
-    borderLeft: `3px solid ${inbound ? '#22C55E' : '#D1D5DB'}`,
-  }),
-  msgTime: { color: '#9CA3AF', fontSize: 10, flexShrink: 0, whiteSpace: 'nowrap' },
-  pill: (bg, fg) => ({
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600,
-    background: bg, color: fg,
-  }),
-  empty: { color: '#9CA3AF', fontSize: 13, padding: '24px 0', textAlign: 'center' },
-  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: '#9CA3AF', gap: 10, fontSize: 14 },
-  funnel: { display: 'flex', alignItems: 'center', gap: 0, marginTop: 20, marginBottom: 4 },
-  funnelBar: (w, c) => ({
-    height: 8, borderRadius: 4, background: c, flex: w, marginRight: 3,
-    transition: 'flex .5s',
-  }),
-  funnelLabel: { fontSize: 10, color: '#9CA3AF', display: 'flex', justifyContent: 'space-between', marginTop: 2 },
-});
+const PAGE_CSS = `
+.campaign-header{margin-bottom:28px}
+.campaign-title{font-size:22px;font-weight:700;letter-spacing:-0.02em;display:flex;align-items:center;gap:10px}
+.campaign-sub{font-size:13px;color:#6B7280;margin-top:2px}
+
+.campaign-actions{display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap;align-items:center}
+.campaign-mode-group{display:flex;gap:3px;background:#F3F4F6;padding:3px;border-radius:10px}
+.campaign-mode-btn{padding:7px 16px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:12px;font-family:inherit;transition:all .15s}
+.campaign-mode-btn.active{background:#fff;color:#111827;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.campaign-mode-btn:not(.active){background:transparent;color:#6B7280}
+.campaign-mode-btn:not(.active):hover{color:#374151}
+
+.campaign-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s}
+.campaign-btn.primary{background:#3B82F6;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.campaign-btn.primary:hover{background:#2563EB}
+.campaign-btn.primary:disabled{background:#E5E7EB;color:#9CA3AF;cursor:not-allowed;box-shadow:none}
+.campaign-btn.outline{background:#fff;color:#374151;border:1.5px solid #E5E7EB}
+.campaign-btn.outline:hover{border-color:#D1D5DB;background:#F9FAFB}
+.campaign-btn.danger{background:#FEF2F2;color:#ef4444;border:1.5px solid #ef4444}
+.campaign-btn.danger:hover{background:#FEE2E2}
+
+.campaign-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:28px}
+.campaign-kpi-card{background:#fff;border-radius:12px;border:0.5px solid #E5E7EB;padding:20px;position:relative;overflow:hidden;transition:box-shadow .2s,transform .15s}
+.campaign-kpi-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.07);transform:translateY(-1px)}
+.campaign-kpi-icon{position:absolute;top:16px;right:16px;opacity:0.1;pointer-events:none}
+.campaign-kpi-label{font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:8px}
+.campaign-kpi-value{font-size:28px;font-weight:700;letter-spacing:-0.03em;line-height:1}
+
+.campaign-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+.campaign-panel{background:#fff;border-radius:12px;border:0.5px solid #E5E7EB;padding:24px}
+.campaign-panel-title{font-size:14px;font-weight:600;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+
+.funnel-track{display:flex;align-items:center;gap:4px;margin:20px 0 6px}
+.funnel-seg{height:10px;border-radius:5px;transition:flex .5s ease}
+
+.funnel-labels{display:flex;justify-content:space-between;margin-top:4px}
+.funnel-labels span{font-size:10px;font-weight:600}
+
+.stat-row{display:flex;justify-content:space-between;padding:10px 0}
+.stat-row+ .stat-row{border-top:0.5px solid #F3F4F6}
+.stat-label{font-size:13px;color:#6B7280}
+.stat-value{font-size:13px;font-weight:700}
+
+.msg-section{background:#fff;border-radius:12px;border:0.5px solid #E5E7EB;padding:24px}
+.msg-thread{display:flex;flex-direction:column;gap:6px}
+.msg-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;font-size:12px;transition:background .15s}
+.msg-item.inbound{background:#F0FDF4;border-left:3px solid #22C55E}
+.msg-item.outbound{background:#F9FAFB;border-left:3px solid #D1D5DB}
+.msg-item:hover{filter:brightness(0.97)}
+.msg-body{flex:1;min-width:0}
+.msg-text{color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.msg-meta{display:flex;gap:6px;margin-top:4px}
+.msg-time{color:#9CA3AF;font-size:10px;flex-shrink:0;white-space:nowrap;margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600}
+.pill-green{background:#DCFCE7;color:#166534}
+.pill-gray{background:#F3F4F6;color:#6B7280}
+.pill-blue{background:#E5E7EB;color:#374151}
+
+.empty-state{color:#9CA3AF;font-size:13px;padding:32px 0;text-align:center}
+.loading-state{display:flex;align-items:center;justify-content:center;min-height:60vh;color:#9CA3AF;gap:10px;font-size:14px}
+
+@media(max-width:900px){
+  .campaign-kpis{grid-template-columns:repeat(3,1fr)}
+  .campaign-row{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .campaign-kpis{grid-template-columns:repeat(2,1fr)}
+}
+`;
 
 const KPI_CONFIG = [
   { key: 'total', label: 'Leads totaux', color: '#3B82F6', icon: 'users' },
@@ -73,7 +86,7 @@ const KPI_CONFIG = [
   { key: 'msgsSent', label: 'Messages envoyés', color: '#06B6D4', icon: 'mail' },
 ];
 
-const funnelSteps = [
+const FUNNEL = [
   { key: 'total', label: 'Leads', color: '#3B82F6' },
   { key: 'contacted', label: 'Contactés', color: '#F59E0B' },
   { key: 'consented', label: 'Consentements', color: '#22C55E' },
@@ -90,6 +103,10 @@ export default function CampaignsPage() {
   const cronRef = useRef(null);
 
   useEffect(() => {
+    const style = document.createElement('style');
+    style.id = 'campaign-css';
+    style.textContent = PAGE_CSS;
+    if (!document.getElementById('campaign-css')) document.head.appendChild(style);
     loadStats();
     return () => { if (cronRef.current) clearInterval(cronRef.current); };
   }, []);
@@ -147,141 +164,145 @@ export default function CampaignsPage() {
 
   const got = stats || {};
   const maxFunnel = Math.max(got.total || 1, 1);
-  const funnelW = funnelSteps.map(s => ((got[s.key] || 0) / maxFunnel));
 
-  if (loading) return <div style={s('loading')}><SvgIcon name="refresh" size={20} color="#9CA3AF"/> Chargement...</div>;
+  function modeLabel(m) {
+    return m === 'contact' ? 'Contact' : m === 'followup' ? 'Relance' : 'Marketing';
+  }
+
+  if (loading) return <div className="loading-state"><SvgIcon name="refresh" size={20} color="#9CA3AF"/> Chargement…</div>;
 
   return (
-    <div style={s('page')}>
-      <div style={s('header')}>
-        <h1 style={s('title')}>
+    <div style={{ padding: '24px 28px', maxWidth: 1120, margin: '0 auto' }}>
+      <div className="campaign-header">
+        <h1 className="campaign-title">
           <SvgIcon name="campaign" size={26} color="#3B82F6"/>
           Campagnes WhatsApp
         </h1>
-        <p style={s('subtitle')}>Automatisation, envoi et suivi en temps réel des campagnes agents</p>
+        <p className="campaign-sub">Automatisation, envoi et suivi en temps réel des campagnes agents</p>
       </div>
 
-      <div style={s('actions')}>
-        <div style={{ display: 'flex', gap: 4, background: '#F3F4F6', padding: 3, borderRadius: 10 }}>
-          {[
-            { key: 'contact', label: 'Contact' },
-            { key: 'followup', label: 'Relance' },
-            { key: 'marketing', label: 'Marketing' },
-          ].map(m => (
-            <button key={m.key} onClick={() => setMode(m.key)}
-              style={{
-                padding: '7px 16px', border: 'none', borderRadius: 8,
-                background: mode === m.key ? '#fff' : 'transparent',
-                color: mode === m.key ? '#111827' : '#6B7280',
-                fontWeight: 600, cursor: 'pointer', fontSize: 12,
-                fontFamily: 'inherit', boxShadow: mode === m.key ? '0 1px 3px rgba(0,0,0,.1)' : 'none',
-                transition: 'all .15s',
-              }}>
-              {m.label}
+      <div className="campaign-actions">
+        <div className="campaign-mode-group">
+          {['contact', 'followup', 'marketing'].map(m => (
+            <button key={m}
+              className={`campaign-mode-btn${mode === m ? ' active' : ''}`}
+              onClick={() => setMode(m)}>
+              {modeLabel(m)}
             </button>
           ))}
         </div>
-        <button onClick={handleSendCampaign} disabled={sending} style={s('btn', '#3B82F6', '#fff', sending)}>
-          <SvgIcon name="send" size={16} color={sending ? '#9CA3AF' : '#fff'}/>
-          {sending ? 'Envoi en cours…' : `Lancer ${mode === 'contact' ? 'contact' : mode === 'followup' ? 'relance' : 'marketing'}`}
+        <button className="campaign-btn primary" disabled={sending} onClick={handleSendCampaign}>
+          <SvgIcon name="send" size={15} color={sending ? '#9CA3AF' : '#fff'}/>
+          {sending ? 'Envoi en cours…' : `Lancer ${modeLabel(mode).toLowerCase()}`}
         </button>
-        <button onClick={toggleAutoCampaign} style={s('btnOutline', cronActive)}>
-          <SvgIcon name="refresh" size={16} color={cronActive ? '#ef4444' : '#374151'}/>
+        <button className={`campaign-btn${cronActive ? ' danger' : ' outline'}`} onClick={toggleAutoCampaign}>
+          <SvgIcon name="refresh" size={15} color={cronActive ? '#ef4444' : '#374151'}/>
           {cronActive ? 'Arrêter auto (5 min)' : 'Mode automatique'}
         </button>
-        <button onClick={loadStats} style={{ ...s('btn', '#fff', '#374151', false), border: '1.5px solid #E5E7EB' }}>
-          <SvgIcon name="refresh" size={16} color="#374151"/>
+        <button className="campaign-btn outline" onClick={loadStats}>
+          <SvgIcon name="refresh" size={15} color="#374151"/>
           Rafraîchir
         </button>
       </div>
 
-      <div style={s('grid')}>
+      <div className="campaign-kpis">
         {KPI_CONFIG.map(k => (
-          <div key={k.key} style={s('card')}
-            onMouseOver={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,.08)'}
-            onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}>
-            <div style={s('cardIcon')}><SvgIcon name={k.icon} size={24} color={k.color}/></div>
-            <div style={s('cardLabel')}>{k.label}</div>
-            <div style={{ ...s('cardValue'), color: k.color }}>{got[k.key] || 0}</div>
+          <div key={k.key} className="campaign-kpi-card">
+            <div className="campaign-kpi-icon">
+              <SvgIcon name={k.icon} size={24} color={k.color}/>
+            </div>
+            <div className="campaign-kpi-label">{k.label}</div>
+            <div className="campaign-kpi-value" style={{ color: k.color }}>
+              {got[k.key] || 0}
+            </div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
-        <div style={s('section')}>
-          <h2 style={s('sectionTitle')}>
-            <SvgIcon name="trending_up" size={18} color="#3B82F6"/>
+      <div className="campaign-row">
+        <div className="campaign-panel">
+          <h2 className="campaign-panel-title">
+            <SvgIcon name="trending_up" size={16} color="#3B82F6"/>
             Entonnoir de conversion
           </h2>
-          <div style={s('funnel')}>
-            {funnelSteps.map((f, i) => (
-              <div key={f.key} style={s('funnelBar', funnelW[i] * 100, f.color)}/>
+          <div className="funnel-track">
+            {FUNNEL.map((f, i) => (
+              <div key={f.key}
+                className="funnel-seg"
+                style={{ flex: (got[f.key] || 0) / maxFunnel, background: f.color }}/>
             ))}
           </div>
-          <div style={s('funnelLabel')}>
-            {funnelSteps.map(f => (
-              <span key={f.key} style={{ color: f.color, fontWeight: 600 }}>{got[f.key] || 0}</span>
+          <div className="funnel-labels">
+            {FUNNEL.map(f => (
+              <span key={f.key} style={{ color: f.color }}>{got[f.key] || 0}</span>
             ))}
           </div>
-          <div style={s('funnelLabel')}>
-            {funnelSteps.map(f => (
-              <span key={f.key}>{f.label}</span>
-            ))}
+          <div className="funnel-labels" style={{ color: '#9CA3AF', fontSize: 10, fontWeight: 400 }}>
+            {FUNNEL.map(f => <span key={f.key}>{f.label}</span>)}
           </div>
         </div>
 
-        <div style={s('section')}>
-          <h2 style={s('sectionTitle')}>
-            <SvgIcon name="info" size={18} color="#F59E0B"/>
+        <div className="campaign-panel">
+          <h2 className="campaign-panel-title">
+            <SvgIcon name="info" size={16} color="#F59E0B"/>
             Résumé campagne
           </h2>
           {stats ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, color: '#374151' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Taux de contact</span>
-                <span style={{ fontWeight: 700 }}>{got.total ? Math.round(got.contacted / got.total * 100) : 0}%</span>
+            <div>
+              <div className="stat-row">
+                <span className="stat-label">Taux de contact</span>
+                <span className="stat-value">{got.total ? Math.round(got.contacted / got.total * 100) : 0}%</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Taux de consentement</span>
-                <span style={{ fontWeight: 700, color: '#22C55E' }}>{got.contacted ? Math.round(got.consented / got.contacted * 100) : 0}%</span>
+              <div className="stat-row">
+                <span className="stat-label">Taux de consentement</span>
+                <span className="stat-value" style={{ color: '#22C55E' }}>
+                  {got.contacted ? Math.round(got.consented / got.contacted * 100) : 0}%
+                </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Taux de validation</span>
-                <span style={{ fontWeight: 700, color: '#8B5CF6' }}>{got.consented ? Math.round(got.validated / got.consented * 100) : 0}%</span>
+              <div className="stat-row">
+                <span className="stat-label">Taux de validation</span>
+                <span className="stat-value" style={{ color: '#8B5CF6' }}>
+                  {got.consented ? Math.round(got.validated / got.consented * 100) : 0}%
+                </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Messages envoyés</span>
-                <span style={{ fontWeight: 700, color: '#06B6D4' }}>{got.msgsSent || 0}</span>
+              <div className="stat-row">
+                <span className="stat-label">Messages envoyés</span>
+                <span className="stat-value" style={{ color: '#06B6D4' }}>{got.msgsSent || 0}</span>
               </div>
             </div>
-          ) : <div style={s('empty')}>En attente de données</div>}
+          ) : (
+            <div className="empty-state">En attente de données</div>
+          )}
         </div>
       </div>
 
-      <div style={s('section')}>
-        <h2 style={s('sectionTitle')}>
-          <SvgIcon name="whatsapp" size={18} color="#22C55E"/>
+      <div className="msg-section">
+        <h2 className="campaign-panel-title">
+          <SvgIcon name="whatsapp" size={16} color="#22C55E"/>
           Derniers messages WhatsApp
-          <span style={s('pill', '#E5E7EB', '#374151')}>{messages.length} messages</span>
+          <span className="pill pill-blue" style={{ marginLeft: 4 }}>{messages.length} messages</span>
         </h2>
         {messages.length === 0 ? (
-          <div style={s('empty')}>Aucun message pour le moment</div>
+          <div className="empty-state">Aucun message pour le moment</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="msg-thread">
             {messages.map((m, i) => (
-              <div key={m.id || i} style={s('msgRow', m.direction === 'inbound')}>
-                <SvgIcon name={m.direction === 'inbound' ? 'download' : 'send'} size={14} color={m.direction === 'inbound' ? '#22C55E' : '#6B7280'}/>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>
-                    {m.content?.body || '(aucun contenu)'}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                    <span style={s('pill', m.direction === 'inbound' ? '#DCFCE7' : '#F3F4F6', m.direction === 'inbound' ? '#166534' : '#6B7280')}>
+              <div key={m.id || i} className={`msg-item ${m.direction === 'inbound' ? 'inbound' : 'outbound'}`}>
+                <SvgIcon name={m.direction === 'inbound' ? 'download' : 'send'}
+                  size={14} color={m.direction === 'inbound' ? '#22C55E' : '#6B7280'}/>
+                <div className="msg-body">
+                  <div className="msg-text">{m.content?.body || '(aucun contenu)'}</div>
+                  <div className="msg-meta">
+                    <span className={`pill ${m.direction === 'inbound' ? 'pill-green' : 'pill-gray'}`}>
                       {m.direction === 'inbound' ? 'Reçu' : 'Envoyé'}
                     </span>
                   </div>
                 </div>
-                <span style={s('msgTime')}>{new Date(m.created_at).toLocaleString('fr-FR')}</span>
+                <span className="msg-time">
+                  {new Date(m.created_at).toLocaleString('fr-FR', {
+                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                  })}
+                </span>
               </div>
             ))}
           </div>
