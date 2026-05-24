@@ -206,6 +206,7 @@ export default function AgentHubPage() {
   const [kpis, setKpis] = useState({ leads: 247, shops: 34, conv: 13.8 });
   const [waitingAgents, setWaitingAgents] = useState({});
   const [allOff, setAllOff] = useState(false);
+  const [agentMode, setAgentMode] = useState('idle'); // 'idle' | 'simulation' | 'work'
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importedContacts, setImportedContacts] = useState([]);
@@ -289,27 +290,50 @@ export default function AgentHubPage() {
     return missing;
   }, [agentReqs]);
 
-  const handleToggleAll = () => {
-    const newOff = !allOff;
-    setAllOff(newOff);
+  const handleSleepAll = () => {
+    setAgentMode('idle');
     const all = {};
-    AGENTS.forEach(a => { all[a.key] = newOff; });
+    AGENTS.forEach(a => { all[a.key] = true; });
     setDisabled(all);
-    if (newOff) {
-      AGENTS.forEach(a => updateAnim(a.key, { thought: '🔌 Tous les agents éteints...' }));
-      setTimeout(() => AGENTS.forEach(a => updateAnim(a.key, { thought: null })), 2000);
-      setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-        from: 'Système', to: 'Tous', msg: '🔴 Tous les agents ont été désactivés', color: '#ef4444', urgent: true }, ...p.slice(0, 7)]);
-    } else {
-      AGENTS.forEach(a => {
-        if (!isSleeping(a.key)) {
-          updateAnim(a.key, { thought: '🔋 Réactivation...' });
-          setTimeout(() => updateAnim(a.key, { thought: null }), 1500);
-        }
-      });
-      setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-        from: 'Système', to: 'Tous', msg: '🟢 Tous les agents réactivés', color: '#22C55E' }, ...p.slice(0, 7)]);
-    }
+    setAllOff(true);
+    AGENTS.forEach(a => updateAnim(a.key, { thought: '💤 Endormi...' }));
+    setTimeout(() => AGENTS.forEach(a => updateAnim(a.key, { thought: null })), 2000);
+    setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+      from: 'Système', to: 'Tous', msg: '💤 Tous les agents endormis', color: '#6B7280', urgent: true }, ...p.slice(0, 7)]);
+  };
+
+  const handleSimulateAll = () => {
+    setAgentMode('simulation');
+    const all = {};
+    AGENTS.forEach(a => { all[a.key] = false; });
+    setDisabled(all);
+    setAllOff(false);
+    setStatuses(prev => {
+      const next = {};
+      Object.keys(prev).forEach(k => { next[k] = 'running'; });
+      return next;
+    });
+    AGENTS.forEach(a => updateAnim(a.key, { thought: '🎯 Mode Simulation' }));
+    setTimeout(() => AGENTS.forEach(a => updateAnim(a.key, { thought: null })), 2000);
+    setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+      from: 'Système', to: 'Tous', msg: '🎯 Mode Simulation activé — Agents simulés', color: '#F59E0B', urgent: true }, ...p.slice(0, 7)]);
+  };
+
+  const handleWorkAll = () => {
+    setAgentMode('work');
+    const all = {};
+    AGENTS.forEach(a => { all[a.key] = false; });
+    setDisabled(all);
+    setAllOff(false);
+    setStatuses(prev => {
+      const next = {};
+      Object.keys(prev).forEach(k => { next[k] = 'running'; });
+      return next;
+    });
+    AGENTS.forEach(a => updateAnim(a.key, { thought: '🚀 Mode Travail Réel' }));
+    setTimeout(() => AGENTS.forEach(a => updateAnim(a.key, { thought: null })), 2000);
+    setFeedItems(p => [{ time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+      from: 'Système', to: 'Tous', msg: '🚀 Mode Travail Réel activé — Agents opérationnels', color: '#22C55E', urgent: true }, ...p.slice(0, 7)]);
   };
 
   const processAgentPipeline = useCallback((contacts) => {
@@ -753,12 +777,24 @@ export default function AgentHubPage() {
                   </div>
                 ))}
                 <div style={{ width: 1, height: 30, background: '#e5e7eb', margin: '0 4px' }}/>
-                {isAdmin && (<button onClick={handleToggleAll} title={allOff ? 'Activer tous les agents' : 'Éteindre tous les agents'}
-                  style={{ padding: '8px 14px', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit',
-                    background: allOff ? '#10b981' : '#ef4444', color: 'white', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .2s' }}>
-                  <span>{allOff ? '🟢' : '🔴'}</span>
-                  {allOff ? 'Tout activer' : 'Tout éteindre'}
-                </button>)}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[
+                    { label: '💤 Tout endormir', mode: 'idle', color: '#6B7280', bg: '#f3f4f6', activeBg: '#6B7280', action: handleSleepAll },
+                    { label: '🎮 Simulation', mode: 'simulation', color: '#D97706', bg: '#FFFBEB', activeBg: '#F59E0B', action: handleSimulateAll },
+                    { label: '🚀 Travail Réel', mode: 'work', color: '#16A34A', bg: '#F0FDF4', activeBg: '#22C55E', action: handleWorkAll },
+                  ].map(btn => (
+                    <button key={btn.mode} onClick={btn.action}
+                      style={{
+                        padding: '6px 12px', border: 'none', borderRadius: 8, cursor: 'pointer',
+                        fontWeight: 600, fontSize: 10, fontFamily: 'inherit', whiteSpace: 'nowrap',
+                        background: agentMode === btn.mode ? btn.activeBg : btn.bg,
+                        color: agentMode === btn.mode ? 'white' : btn.color,
+                        transition: 'all .2s',
+                      }}>
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
                 {isAdmin && (<button onClick={() => {
                   if (!modeSecondaire) {
                     setModeSecondaire(true);
